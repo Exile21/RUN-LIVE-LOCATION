@@ -83,6 +83,10 @@ def open_event(event_id: int, *, now: datetime) -> Event:
             raise StateConflict("Only a draft event can be opened.")
         if event.group_id is None:
             raise StateConflict("Set a Telegram group before opening the event.")
+        if event.schedule_starts_at is None or event.schedule_ends_at is None:
+            raise StateConflict("Set the event schedule before opening.")
+        if event.schedule_ends_at <= event.schedule_starts_at:
+            raise StateConflict("End time must be after start time.")
         if Event.objects.filter(status=Event.Status.OPEN, group_id=event.group_id).exclude(pk=event.pk).exists():
             raise StateConflict("That Telegram group already belongs to an open event.")
         event.status = Event.Status.OPEN

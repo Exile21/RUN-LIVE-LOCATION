@@ -1,5 +1,7 @@
 from datetime import UTC, datetime, timedelta
 
+from django.utils import timezone
+
 from tracking.models import Event, Participant, TelegramConfig
 
 NOW = datetime(2026, 10, 21, 12, 0, tzinfo=UTC)
@@ -19,8 +21,8 @@ def make_event(**kwargs):
         "name": "Test event",
         "group_id": -1001234567890,
         "status": Event.Status.OPEN,
-        "schedule_starts_at": NOW + timedelta(hours=1),
-        "schedule_ends_at": NOW + timedelta(hours=2),
+        "schedule_starts_at": timezone.now() + timedelta(hours=1),
+        "schedule_ends_at": timezone.now() + timedelta(hours=2),
         "route_segments": [[[1.0, 2.0], [1.1, 2.1]]],
     }
     defaults.update(kwargs)

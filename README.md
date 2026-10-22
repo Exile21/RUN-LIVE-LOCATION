@@ -1,12 +1,14 @@
 # Runline
 
-Consent-based Telegram Live Location tracking for small running events. Organizers upload a GPX route, runners share Live Location privately with a bot, and a read-only map is available to anyone holding the event link.
+Consent-based Telegram Live Location tracking for small running events. Organizers set an event schedule, upload a GPX route, runners share Live Location privately with a bot, and a read-only map is available to anyone holding the event link.
 
 This is not an emergency, safety-monitoring, or official race-timing system. GPS accuracy and Telegram delivery can be delayed or stop entirely, and a runner can share a spoofed location. The application keeps only the latest position per runner.
 
 ## What it does
 
 - Event lifecycle: draft → open → closed. Closing clears saved runner positions and cannot be undone.
+- Event schedule with local start and end times, shown on the organizer list and public map.
+- One Telegram group configured in Django Admin and reused by new events.
 - Runner onboarding through a private Telegram chat. Joining the group never grants GPS access.
 - Explicit consent covering the public, link-only map.
 - Private live-location messages update one current position per runner.
@@ -31,7 +33,7 @@ python3 -m venv .venv
 pip install -r requirements.txt
 cp .env.example .env
 # edit .env: set DJANGO_SECRET_KEY, DJANGO_DEBUG=true,
-# DATABASE_PATH, and optionally bot credentials
+# DJANGO_TIME_ZONE, DATABASE_PATH, and optionally bot credentials
 set -a; . ./.env; set +a
 python manage.py migrate
 python manage.py createsuperuser
@@ -55,15 +57,17 @@ python -c "import secrets; print(secrets.token_urlsafe(48))"
 ## Telegram setup
 
 1. Create the bot with BotFather and put its token and username in `.env`.
-2. Add the bot to the event's Telegram group **as an administrator**.
-3. In the group, send `/groupid`. Copy the numeric ID into the event form.
-4. Upload a GPX file and save the event.
+2. Add the bot to the Telegram group **as an administrator**.
+3. In the group, send `/groupid`. Copy the negative ID into **Admin → Telegram settings**. New events reuse this group; the event form no longer asks for it.
+4. Create an event with start and end times and upload a GPX file.
 5. Open the event. The app verifies that the chat is a group and that the bot is an administrator before changing the event to open.
 6. Post the runner onboarding link in the group, or let the bot welcome new members with it.
 7. A runner opens the link, presses Start, reads the consent notice, and taps **Agree and share**. The runner then opens Telegram's attachment menu → Location → **Share Live Location**. A one-time pin is not tracked.
 8. Share the separate spectator link with viewers. It is a bearer capability: anyone with it can view and copy visible positions. Rotate it if it leaks.
 
 The bot cannot start a private conversation with a runner. The runner must press Start from the onboarding link. Joining a group cannot automatically enable GPS sharing.
+
+Event schedule times use `DJANGO_TIME_ZONE` (default `Asia/Jakarta`). The schedule is displayed and validated, but opening and closing the event remain manual; there is no automatic start/end job.
 
 Register the webhook after the public HTTPS deployment is reachable:
 
@@ -103,6 +107,7 @@ Required production environment:
 
 - `DJANGO_DEBUG=false`
 - `DJANGO_SECRET_KEY` — long random value, server-side only
+- `DJANGO_TIME_ZONE` — local event timezone, for example `Asia/Jakarta`
 - `DJANGO_ALLOWED_HOSTS` — exact hostnames
 - `DJANGO_CSRF_TRUSTED_ORIGINS` — full HTTPS origins
 - `DATABASE_PATH` — path on persistent storage, outside the static root
@@ -124,6 +129,7 @@ Run the automated suite without Telegram credentials:
 ```bash
 DJANGO_SECRET_KEY=test-only-secret \
 DJANGO_DEBUG=true \
+DJANGO_TIME_ZONE=Asia/Jakarta \
 DJANGO_ALLOWED_HOSTS=testserver,localhost,127.0.0.1 \
 python manage.py test -v 2
 ```

@@ -82,35 +82,64 @@ class GpxTests(TestCase):
 
 
 class EventFormTests(TestCase):
-    def test_create_requires_route_and_saves_segments(self):
-        form = EventForm(data={"name": "New", "group_id": "-100123"})
+    schedule = {
+        "schedule_starts_at": "2026-10-22T06:00",
+        "schedule_ends_at": "2026-10-22T09:00",
+    }
+
+    def setUp(self):
+        make_telegram_config(group_id=-100777)
+
+    def test_create_requires_route_and_uses_admin_group(self):
+        form = EventForm(data={"name": "New", **self.schedule})
         self.assertFalse(form.is_valid())
         self.assertIn("Upload a GPX route.", form.non_field_errors())
 
         upload = SimpleUploadedFile("route.gpx", FIXTURE.read_bytes(), content_type="application/gpx+xml")
         form = EventForm(
-            data={"name": "New", "group_id": "-100123"},
+            data={"name": "New", **self.schedule},
             files={"route_file": upload},
         )
         self.assertTrue(form.is_valid(), form.errors)
         event = form.save()
+        self.assertEqual(event.group_id, -100777)
+        self.assertIsNotNone(event.schedule_starts_at)
         self.assertEqual(event.route_segments, [[[1.0, 2.0], [1.1, 2.1]], [[3.0, 4.0], [3.1, 4.1]]])
 
-    def test_edit_without_file_keeps_route(self):
+    def test_create_requires_telegram_config(self):
+        TelegramConfig.objects.all().delete()
+        upload = SimpleUploadedFile("route.gpx", FIXTURE.read_bytes(), content_type="application/gpx+xml")
+        form = EventForm(
+            data={"name": "New", **self.schedule},
+            files={"route_file": upload},
+        )
+        self.assertFalse(form.is_valid())
+        self.assertIn(
+            "Set the Telegram group in Admin -> Telegram settings before creating an event.",
+            form.non_field_errors(),
+        )
+
+    def test_edit_without_file_keeps_route_and_group(self):
         event = make_event(status=Event.Status.DRAFT)
         original = event.route_segments
-        form = EventForm(data={"name": "Renamed", "group_id": str(event.group_id)}, instance=event)
+        original_group = event.group_id
+        form = EventForm(
+            data={"name": "Renamed", **self.schedule},
+            instance=event,
+        )
         self.assertTrue(form.is_valid(), form.errors)
         saved = form.save()
         self.assertEqual(saved.route_segments, original)
+        self.assertEqual(saved.group_id, original_group)
         self.assertEqual(saved.name, "Renamed")
+        self.assertIsNotNone(saved.schedule_starts_at)
 
     def test_invalid_replacement_leaves_route_unchanged(self):
         event = make_event(status=Event.Status.DRAFT)
         original = event.route_segments
         upload = SimpleUploadedFile("bad.gpx", b"<gpx><trk>", content_type="application/gpx+xml")
         form = EventForm(
-            data={"name": "Broken", "group_id": str(event.group_id)},
+            data={"name": "Broken", **self.schedule},
             files={"route_file": upload},
             instance=event,
         )
@@ -119,19 +148,20 @@ class EventFormTests(TestCase):
         self.assertEqual(event.route_segments, original)
         self.assertEqual(event.name, "Test event")
 
-    def test_closed_event_cannot_be_edited(self):
-        event = make_event(status=Event.Status.CLOSED)
-        form = EventForm(data={"name": "Changed", "group_id": str(event.group_id)}, instance=event)
-        self.assertFalse(form.is_valid())
-
-    def test_open_event_group_is_locked(self):
-        event = make_event()
+    def test_end_must_follow_start(self):
+        event = make_event(status=Event.Status.DRAFT)
         form = EventForm(
-            data={"name": "Changed", "group_id": "-1009999999999"},
+            data={
+                "name": "Backwards",
+                "schedule_starts_at": "2026-10-22T10:00",
+                "schedule_ends_at": "2026-10-22T09:00",
+            },
             instance=event,
         )
-        self.assertTrue(form.fields["group_id"].disabled)
-        self.assertTrue(form.is_valid(), form.errors)
-        saved = form.save()
-        self.assertEqual(saved.group_id, event.group_id)
-        self.assertEqual(saved.name, "Changed")
+        self.assertFalse(form.is_valid())
+        self.assertIn("End time must be after start time.", form.non_field_errors())
+
+    def test_closed_event_cannot_be_edited(self):
+        event = make_event(status=Event.Status.CLOSED)
+        form = EventForm(data={"name": "Changed", **self.schedule}, instance=event)
+        self.assertFalse(form.is_valid())

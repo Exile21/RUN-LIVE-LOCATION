@@ -7,7 +7,7 @@ from django.urls import reverse
 
 from tracking.models import Event, Participant
 from tracking.telegram import TelegramError
-from tracking.tests.helpers import NOW, make_event, make_participant
+from tracking.tests.helpers import NOW, make_event, make_participant, make_telegram_config
 
 User = get_user_model()
 
@@ -15,6 +15,7 @@ User = get_user_model()
 class AccessTests(TestCase):
     def setUp(self):
         self.event = make_event()
+        make_telegram_config(group_id=self.event.group_id)
         self.staff = User.objects.create_user(
             "staff", password="password", is_staff=True, is_active=True
         )
@@ -194,7 +195,12 @@ class AccessTests(TestCase):
         upload = SimpleUploadedFile("bad.gpx", b"<gpx><trk>", content_type="application/gpx+xml")
         response = client.post(
             reverse("event_edit", args=[draft.pk]),
-            data={"name": "Broken", "group_id": str(draft.group_id), "route_file": upload},
+            data={
+                "name": "Broken",
+                "schedule_starts_at": "2026-10-22T06:00",
+                "schedule_ends_at": "2026-10-22T09:00",
+                "route_file": upload,
+            },
             HTTP_X_CSRFTOKEN=csrf,
         )
         self.assertEqual(response.status_code, 200)
@@ -235,3 +241,22 @@ class AccessTests(TestCase):
         response = self.client.post(reverse("event_create"), data={"name": "", "group_id": ""})
         self.assertEqual(response.status_code, 200)
         self.assertIn("Upload a GPX route", response.content.decode())
+
+    def test_upcoming_event_appears_on_event_list(self):
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        starts_at = timezone.now() + timedelta(days=1)
+        make_event(
+            name="Upcoming test event",
+            status=Event.Status.DRAFT,
+            group_id=-100888,
+            schedule_starts_at=starts_at,
+            schedule_ends_at=starts_at + timedelta(hours=2),
+        )
+        self.client.force_login(self.staff)
+        response = self.client.get(reverse("event_list"))
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("Next scheduled event", response.content.decode())
+        self.assertIn("Upcoming test event", response.content.decode())
