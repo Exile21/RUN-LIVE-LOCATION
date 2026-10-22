@@ -1,0 +1,67 @@
+{% extends "tracking/base.html" %}
+{% block title %}{% if event %}Edit {{ event.name }}{% else %}New event{% endif %} · Runline{% endblock %}
+{% block content %}
+<section class="page page--narrow">
+  <p class="eyebrow">{% if event %}Event settings{% else %}New event{% endif %}</p>
+  <h1>{% if event %}Edit event{% else %}Set up an event{% endif %}</h1>
+
+  <form method="post" enctype="multipart/form-data" class="form-card">
+    {% csrf_token %}
+    {% if form.non_field_errors %}
+      <div class="form-errors" role="alert">
+        {% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}
+      </div>
+    {% endif %}
+
+    <div class="field">
+      <label for="{{ form.name.id_for_label }}">Event name</label>
+      {{ form.name }}
+      {% if form.name.help_text %}<p class="help">{{ form.name.help_text }}</p>{% endif %}
+      {% for error in form.name.errors %}<p class="field-error">{{ error }}</p>{% endfor %}
+    </div>
+
+    <div class="schedule-grid">
+      <div class="field">
+        <label for="{{ form.schedule_starts_at.id_for_label }}">Starts</label>
+        {{ form.schedule_starts_at }}
+        <p class="help">{{ form.schedule_starts_at.help_text }}</p>
+        {% for error in form.schedule_starts_at.errors %}<p class="field-error">{{ error }}</p>{% endfor %}
+      </div>
+      <div class="field">
+        <label for="{{ form.schedule_ends_at.id_for_label }}">Ends</label>
+        {{ form.schedule_ends_at }}
+        <p class="help">{{ form.schedule_ends_at.help_text }}</p>
+        {% for error in form.schedule_ends_at.errors %}<p class="field-error">{{ error }}</p>{% endfor %}
+      </div>
+    </div>
+
+    <div class="config-note">
+      <div>
+        <p class="eyebrow">Telegram group</p>
+        {% if telegram_config %}
+          <p class="mono">{{ telegram_config.group_id }}</p>
+          <p class="help">Shared by new events. The bot token and username stay in <code>.env</code>.</p>
+        {% else %}
+          <p class="field-error">No Telegram group configured. Events cannot be created yet.</p>
+        {% endif %}
+      </div>
+      <a class="text-link" href="{% url 'admin:tracking_telegramconfig_changelist' %}">Manage in Admin</a>
+    </div>
+
+    <div class="field">
+      <label for="{{ form.route_file.id_for_label }}">GPX route</label>
+      {{ form.route_file }}
+      <p class="help">
+        Up to 2 MiB and 20,000 points. {% if event %}Leave empty to keep the current route.{% else %}Required.{% endif %}
+        Invalid files never replace an existing route.
+      </p>
+      {% for error in form.route_file.errors %}<p class="field-error">{{ error }}</p>{% endfor %}
+    </div>
+
+    <div class="form-actions">
+      <button class="button button--primary" type="submit">Save event</button>
+      <a class="button button--ghost" href="{% if event %}{% url 'event_detail' pk=event.pk %}{% else %}{% url 'event_list' %}{% endif %}">Cancel</a>
+    </div>
+  </form>
+</section>
+{% endblock %}

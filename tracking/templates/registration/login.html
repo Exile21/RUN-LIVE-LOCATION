@@ -1,0 +1,28 @@
+{% extends "tracking/base.html" %}
+{% block title %}Sign in · Runline{% endblock %}
+{% block content %}
+<section class="page page--narrow">
+  <p class="eyebrow">Organizer access</p>
+  <h1>Sign in</h1>
+  <form method="post" class="form-card">
+    {% csrf_token %}
+    {% if form.non_field_errors %}
+      <div class="form-errors" role="alert">
+        {% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}
+      </div>
+    {% endif %}
+    <div class="field">
+      <label for="{{ form.username.id_for_label }}">Username</label>
+      {{ form.username }}
+    </div>
+    <div class="field">
+      <label for="{{ form.password.id_for_label }}">Password</label>
+      {{ form.password }}
+    </div>
+    <input type="hidden" name="next" value="{{ next }}">
+    <div class="form-actions">
+      <button class="button button--primary" type="submit">Sign in</button>
+    </div>
+  </form>
+</section>
+{% endblock %}

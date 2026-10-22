@@ -1,0 +1,15 @@
+tracking.example.com {
+	encode zstd gzip
+	log {
+		output discard
+	}
+
+	handle_path /static/* {
+		root * /srv/runline/staticfiles
+		file_server
+	}
+
+	handle {
+		reverse_proxy 127.0.0.1:8001
+	}
+}
