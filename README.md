@@ -1,10 +1,67 @@
 # Runline
 
-Consent-based Telegram Live Location tracking for small running events. Organizers set an event schedule, upload a GPX route, runners share Live Location privately with a bot, and a read-only map is available to anyone holding the event link.
+**Live runner tracking for small running events, powered by Telegram Live Location.**
 
-This is not an emergency, safety-monitoring, or official race-timing system. GPS accuracy and Telegram delivery can be delayed or stop entirely, and a runner can share a spoofed location. The application keeps only the latest position per runner.
+![Python](https://img.shields.io/badge/python-3.11%2B-blue)
+![Django](https://img.shields.io/badge/django-5.2%20LTS-0C4B33)
+![Leaflet](https://img.shields.io/badge/map-Leaflet-199900)
+![Database](https://img.shields.io/badge/db-SQLite-003B57)
 
-## What it does
+Runline lets organizers follow runners on the course map in real time, without asking anyone to install a new app. Runners share Telegram **Live Location** privately with a bot. Organizers see everyone on the GPX route from a dashboard, and spectators follow along through a read-only, link-only map.
+
+> Runline is not an emergency, safety-monitoring, or official race-timing system. GPS accuracy and Telegram delivery can be delayed or stop entirely, and a runner can share a spoofed location. Only the latest position per runner is kept.
+
+## Why Runline
+
+- **No app to install.** Runners use Telegram, which they already have.
+- **Consent first.** Joining a group never grants GPS access. Each runner opts in explicitly and can leave with `/stop`.
+- **Privacy by default.** No location history, no replay, no Telegram IDs on public pages. Closing an event wipes saved positions.
+- **Simple to host.** One Django process, SQLite, and a reverse proxy. No Redis, queues, WebSockets, or frontend build step.
+
+## How it works
+
+```mermaid
+flowchart LR
+    O[Organizer] -->|Create event + upload GPX| W[Runline web app]
+    G[Telegram group] -->|Onboarding link| R[Runner]
+    R -->|Start, consent, share Live Location| B[Telegram bot]
+    B -->|Webhook or polling| W
+    W -->|Organizer dashboard| O
+    W -->|Link-only spectator map| S[Spectators]
+```
+
+1. The organizer creates an event, sets its schedule, and uploads the GPX route.
+2. The bot is added to the event's Telegram group and posts an onboarding link.
+3. Each runner opens the private bot chat, agrees to the consent notice, and shares Live Location.
+4. The dashboard and spectator map refresh every five seconds and label runners as waiting, live, stale, or expired.
+5. Closing the event stops intake and clears all stored coordinates.
+
+## Tech stack
+
+| Layer | Choice |
+| --- | --- |
+| Backend | Django 5.2 LTS, Gunicorn |
+| Database | SQLite (single instance) |
+| Map | Leaflet + OpenStreetMap tiles |
+| Bot | Telegram Bot API (webhook in production, long polling locally) |
+| GPX parsing | `defusedxml` |
+| Frontend | Server-rendered templates + vanilla JavaScript |
+
+## Project structure
+
+```
+runlive/       Django project settings and URLs
+tracking/      Events, participants, bot logic, GPX parsing, views, map assets
+  bot.py         Telegram update handling (consent, location, /stop)
+  gpx.py         Safe GPX route parsing
+  snapshots.py   Organizer and public JSON payloads
+  management/    register_webhook, check_telegram, poll_telegram
+deploy/        Example Caddyfile
+docs/          Design spec and implementation plan
+scripts/       Local dev server wrapper
+```
+
+## Features
 
 - Event lifecycle: draft → open → closed. Closing clears saved runner positions and cannot be undone.
 - Event schedule with local start and end times, shown on the organizer list and public map.
