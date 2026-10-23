@@ -102,6 +102,35 @@ class AccessTests(TestCase):
         self.assertEqual(snapshot.status_code, 200)
         self.assertNotIn("telegram_user_id", snapshot.content.decode())
 
+    def test_draft_map_is_limited_to_staff_and_registered_runners(self):
+        draft = make_event(name="Draft", group_id=-100999, status=Event.Status.DRAFT)
+        url = reverse("spectator_detail", args=[draft.spectator_token])
+        snapshot_url = reverse("spectator_snapshot", args=[draft.spectator_token])
+        self.assertEqual(self.client.get(url).status_code, 404)
+        self.assertEqual(self.client.get(snapshot_url).status_code, 404)
+
+        self.client.force_login(self.ordinary)
+        self.assertEqual(self.client.get(url).status_code, 404)
+        self.assertEqual(self.client.get(snapshot_url).status_code, 404)
+
+        Participant.objects.create(
+            event=draft, user=self.ordinary, display_name="Early runner"
+        )
+        self.assertEqual(self.client.get(url).status_code, 200)
+        response = self.client.get(snapshot_url)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["event"]["status"], Event.Status.DRAFT)
+        runners = response.json()["runners"]
+        self.assertEqual([runner["status"] for runner in runners], ["registered"])
+        self.assertEqual(runners[0]["name"], "Early runner")
+        self.assertIsNone(runners[0]["latitude"])
+        self.assertIsNone(runners[0]["longitude"])
+
+        self.client.force_login(self.staff)
+        self.assertEqual(self.client.get(url).status_code, 200)
+        staff = self.client.get(reverse("staff_snapshot", args=[draft.pk])).json()
+        self.assertEqual(staff["runners"][0]["name"], "Early runner")
+
     def test_rotation_invalidates_old_links(self):
         old_token = self.event.spectator_token
         client = Client(enforce_csrf_checks=True)

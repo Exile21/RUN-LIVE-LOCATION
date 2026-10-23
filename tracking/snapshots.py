@@ -13,13 +13,18 @@ def _iso(value: datetime | None) -> str | None:
 def event_snapshot(event: Event, *, staff: bool, now: datetime) -> dict:
     runners = []
     if event.status != Event.Status.CLOSED:
-        participants = event.participants.filter(consented_at__isnull=False).order_by(
-            "created_at", "id"
-        )
-        if not staff:
-            participants = participants.filter(withdrawn=False)
+        if event.status == Event.Status.DRAFT:
+            participants = event.participants.order_by("created_at", "id")
+        else:
+            participants = event.participants.filter(consented_at__isnull=False)
+            if not staff:
+                participants = participants.filter(withdrawn=False)
+            participants = participants.order_by("created_at", "id")
         for index, participant in enumerate(participants, start=1):
-            status = tracking_status(participant, now=now)
+            if event.status == Event.Status.DRAFT:
+                status = "registered"
+            else:
+                status = tracking_status(participant, now=now)
             visible = status in {"live", "stale"}
             row = {
                 "id": str(participant.public_id),

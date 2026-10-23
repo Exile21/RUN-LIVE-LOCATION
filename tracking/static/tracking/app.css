@@ -246,7 +246,7 @@ code, .mono { font-family: var(--font-outlier); font-size: 0.9em; }
 
 .page--dashboard { max-width: 960px; }
 .dashboard-section { display: grid; gap: var(--space-sm); margin-top: var(--space-xl); }
-.dashboard-grid { display: grid; gap: var(--space-sm); }
+.event-carousel > .event-participation { scroll-snap-align: start; }
 .event-participation {
   display: grid; gap: var(--space-md); min-width: 0;
   padding: var(--space-md); border: var(--rule-hair) solid var(--color-rule);
@@ -293,10 +293,6 @@ code, .mono { font-family: var(--font-outlier); font-size: 0.9em; }
 .lap-row { display: flex; align-items: center; justify-content: space-between; gap: var(--space-sm); }
 .lap-row p { margin: 0; color: var(--color-ink-2); font-size: var(--text-sm); }
 .lap-row strong { color: var(--color-ink); font-size: var(--text-lg); font-variant-numeric: tabular-nums; }
-
-@media (min-width: 720px) {
-  .dashboard-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-}
 
 .empty {
   padding: var(--space-2xl) var(--space-lg);
@@ -549,6 +545,7 @@ html:not(.js) .map-wrap { height: 60dvh; min-height: 320px; }
 .status-text--stale { background: var(--color-stale-wash); color: var(--color-stale); }
 .status-text--expired { background: var(--color-error-wash); color: var(--color-error); }
 .status-text--stopped { color: var(--color-muted); text-decoration: line-through; }
+.status-text--registered { background: var(--color-accent-wash); color: var(--color-accent-2); }
 
 .empty-list { margin: var(--space-md) 0 0; color: var(--color-ink-2); font-size: var(--text-sm); }
 

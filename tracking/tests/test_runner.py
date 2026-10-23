@@ -124,6 +124,9 @@ class RunnerAccountTests(TestCase):
         self.assertContains(dashboard, "Registration open")
         self.assertContains(dashboard, "Telegram opens when the event starts")
         self.assertNotIn("start=p_", dashboard.content.decode())
+        map_url = reverse("spectator_detail", args=[draft.spectator_token])
+        self.assertContains(dashboard, f'href="{map_url}"')
+        self.assertEqual(self.client.get(map_url).status_code, 200)
 
         self.client.force_login(self.staff)
         self.assertContains(

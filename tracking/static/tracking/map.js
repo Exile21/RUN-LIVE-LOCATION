@@ -43,6 +43,7 @@
     waiting: "Waiting",
     expired: "Expired",
     stopped: "Stopped",
+    registered: "Registered",
   };
   const STALE_MS = 120000;
   const POLL_MS = 5000;

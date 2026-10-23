@@ -70,7 +70,7 @@ scripts/       Local dev server wrapper
 - Event schedule with local start and end times, shown on the organizer list and public map.
 - One Telegram group configured in Django Admin and reused by new events.
 - Runner onboarding through a private Telegram chat. Joining the group never grants GPS access.
-- Runner web accounts can join an event from a shared sign-up page before it opens (shown as "Registration open" once someone signs up), keep past events, and see elapsed time and their own lap count.
+- Runner web accounts can join an event from a shared sign-up page before it opens (shown as "Registration open" once someone signs up), view the route and other registered runners while waiting, keep past events, and see elapsed time and their own lap count.
 - Organizers can post the event sign-up link to the Telegram group from the event Info panel.
 - Organizer lap counter for each tracked runner.
 - Explicit consent covering the public, link-only map.

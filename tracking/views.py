@@ -10,7 +10,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.views import LoginView, redirect_to_login
 from django.core.exceptions import RequestDataTooBig, ValidationError
 from django.db.models import Count, F
-from django.http import HttpResponse, JsonResponse
+from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -193,9 +193,7 @@ def _participation_item(participant: Participant, *, now) -> dict:
         else "Telegram bot is not configured.",
         "can_leave": not active,
         "is_past": ended,
-        "map_url": ""
-        if event.status == Event.Status.DRAFT
-        else reverse("spectator_detail", args=[event.spectator_token]),
+        "map_url": reverse("spectator_detail", args=[event.spectator_token]),
         "track_url": reverse("runner_track", args=[participant.public_id])
         if ended and getattr(participant, "track_count", 0)
         else "",
@@ -504,17 +502,26 @@ def event_detail(request, pk: int):
     return _private_page(_event_map(request, event, staff=True))
 
 
-def _spectator_event(token: str) -> Event:
-    return get_object_or_404(
+def _spectator_event(request, token: str) -> Event:
+    event = get_object_or_404(
         Event,
         spectator_token=token,
-        status__in=[Event.Status.OPEN, Event.Status.CLOSED],
+        status__in=[Event.Status.DRAFT, Event.Status.OPEN, Event.Status.CLOSED],
     )
+    if event.status == Event.Status.DRAFT and not (
+        _active_staff(request.user)
+        or (
+            request.user.is_authenticated
+            and event.participants.filter(user=request.user).exists()
+        )
+    ):
+        raise Http404
+    return event
 
 
 @never_cache
 def spectator_detail(request, token: str):
-    event = _spectator_event(token)
+    event = _spectator_event(request, token)
     return _private_page(_event_map(request, event, staff=False), index=True)
 
 
@@ -528,7 +535,7 @@ def staff_snapshot(request, pk: int):
 
 @never_cache
 def spectator_snapshot(request, token: str):
-    event = _spectator_event(token)
+    event = _spectator_event(request, token)
     response = JsonResponse(event_snapshot(event, staff=False, now=timezone.now()))
     _private(response)
     response["X-Robots-Tag"] = "noindex"

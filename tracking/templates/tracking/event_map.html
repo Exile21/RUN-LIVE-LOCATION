@@ -120,7 +120,13 @@
             </div>
           {% endif %}
         {% else %}
-          <p class="panel-note">This read-only map is available to anyone with the link. Locations may be delayed. Share Live Location is controlled by each runner.</p>
+          <p class="panel-note">
+            {% if event.status == "draft" %}
+              This read-only map is visible to registered runners until the event opens.
+            {% else %}
+              This read-only map is available to anyone with the link. Locations may be delayed. Share Live Location is controlled by each runner.
+            {% endif %}
+          </p>
         {% endif %}
       </section>
 
@@ -210,5 +216,5 @@
 {% block app_tabbar %}{% endblock %}
 {% block scripts %}
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin="" defer></script>
-  <script src="{% static 'tracking/map.js' %}?v=20261023b" defer></script>
+  <script src="{% static 'tracking/map.js' %}?v=20261023c" defer></script>
 {% endblock %}

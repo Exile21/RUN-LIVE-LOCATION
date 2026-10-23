@@ -19,7 +19,7 @@
         <span class="muted">{{ current|length }}</span>
       </div>
       {% include "tracking/_live_location_guide.html" %}
-      <div class="dashboard-grid">
+      <div class="event-carousel" role="region" tabindex="0" aria-roledescription="carousel" aria-label="Current events">
         {% for item in current %}
           {% include "tracking/_runner_event_card.html" with item=item %}
         {% endfor %}
@@ -39,7 +39,7 @@
       <span class="muted">{{ past|length }}</span>
     </div>
     {% if past %}
-      <div class="dashboard-grid">
+      <div class="event-carousel" role="region" tabindex="0" aria-roledescription="carousel" aria-label="Past events">
         {% for item in past %}
           {% include "tracking/_runner_event_card.html" with item=item %}
         {% endfor %}
