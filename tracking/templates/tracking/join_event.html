@@ -19,6 +19,10 @@
     </svg>
   {% endif %}
 
+  {% if event.status == "draft" %}
+    <p class="panel-note">This event has not opened yet. Register now, then connect Telegram when it starts.</p>
+  {% endif %}
+
   <div class="join-note">
     <p>Join this event to see elapsed time and your lap count. To appear on the live map, connect Telegram and share Live Location after joining.</p>
     <p class="help">Your latest location is visible to anyone with the event link. Use /stop in the private bot chat to leave.</p>

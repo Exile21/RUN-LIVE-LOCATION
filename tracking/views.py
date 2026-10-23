@@ -160,6 +160,8 @@ def _participation_item(participant: Participant, *, now) -> dict:
         telegram_label = "Telegram connected"
     elif ended:
         telegram_label = "Telegram linked" if participant.telegram_user_id else "Telegram not connected"
+    elif event.status == Event.Status.DRAFT:
+        telegram_label = "Telegram opens when the event starts"
     else:
         if participant.telegram_user_id is None:
             telegram_label = "Connect Telegram"
@@ -185,10 +187,14 @@ def _participation_item(participant: Participant, *, now) -> dict:
         "laps": participant.laps,
         "telegram_label": telegram_label,
         "claim_url": claim_url,
-        "telegram_note": "" if claim_url or active or ended else "Telegram bot is not configured.",
+        "telegram_note": ""
+        if claim_url or active or ended or event.status == Event.Status.DRAFT
+        else "Telegram bot is not configured.",
         "can_leave": not active,
         "is_past": ended,
-        "map_url": reverse("spectator_detail", args=[event.spectator_token]),
+        "map_url": ""
+        if event.status == Event.Status.DRAFT
+        else reverse("spectator_detail", args=[event.spectator_token]),
         "track_url": reverse("runner_track", args=[participant.public_id])
         if ended and getattr(participant, "track_count", 0)
         else "",
@@ -244,7 +250,11 @@ def runner_join(request):
 
 @never_cache
 def join_event(request, token: str):
-    event = get_object_or_404(Event, enrollment_token=token, status=Event.Status.OPEN)
+    event = get_object_or_404(
+        Event,
+        enrollment_token=token,
+        status__in=[Event.Status.DRAFT, Event.Status.OPEN],
+    )
     if not request.user.is_authenticated:
         query = urlencode({"next": request.get_full_path()})
         return redirect(f"{reverse('signup')}?{query}")
@@ -264,10 +274,12 @@ def join_event(request, token: str):
             },
         )
         if created:
-            messages.success(
-                request,
-                f"Joined {event.name}. Connect Telegram to appear on the live map.",
-            )
+            message = f"Joined {event.name}."
+            if event.status == Event.Status.DRAFT:
+                message += " You can connect Telegram when the event starts."
+            else:
+                message += " Connect Telegram to appear on the live map."
+            messages.success(request, message)
         else:
             messages.info(request, f"You already joined {event.name}.")
         return redirect("runner_dashboard")
@@ -563,18 +575,23 @@ def event_rotate_link(request, pk: int):
 @require_POST
 def event_share_telegram(request, pk: int):
     event = get_object_or_404(Event, pk=pk)
-    if event.status != Event.Status.OPEN or event.group_id is None:
-        messages.error(request, "Open the event before sending its sign-up link.")
+    if event.status == Event.Status.CLOSED or event.group_id is None:
+        messages.error(request, "Only an upcoming or open event can be shared.")
         return redirect(f"{reverse('event_detail', args=[event.pk])}?tab=info")
     join_url = request.build_absolute_uri(
         reverse("join_event", args=[event.enrollment_token])
     )
-    text = (
-        f"Join {event.name}.\n\n"
-        f"{join_url}\n\n"
-        "Create a free runner account, then connect Telegram to share Live Location "
-        "and appear on the map."
-    )
+    if event.status == Event.Status.DRAFT:
+        instructions = (
+            "Create a free runner account and register now. When the event starts, "
+            "connect Telegram to share Live Location and appear on the map."
+        )
+    else:
+        instructions = (
+            "Create a free runner account, then connect Telegram to share Live Location "
+            "and appear on the map."
+        )
+    text = f"Join {event.name}.\n\n{join_url}\n\n{instructions}"
     try:
         telegram.telegram_call(
             "sendMessage", {"chat_id": event.group_id, "text": text[:4000]}

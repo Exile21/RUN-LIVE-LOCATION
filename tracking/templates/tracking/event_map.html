@@ -101,10 +101,15 @@
               </div>
             {% endif %}
             {% include "tracking/_live_location_guide.html" %}
+          {% endif %}
+          {% if event.status != "closed" %}
             <div class="share-block">
               <label for="runner-join-link">Runner sign-up page</label>
               <input id="runner-join-link" class="mono" type="text" value="{{ join_url }}" readonly>
               <p class="help">Runners create an account, join here, then connect Telegram to share Live Location.</p>
+              {% if event.status == "draft" %}
+                <p class="help">This event is still a draft. Runners can register now and connect Telegram when it opens.</p>
+              {% endif %}
               <div class="control-actions">
                 <form method="post" action="{% url 'event_share_telegram' pk=event.pk %}">
                   {% csrf_token %}

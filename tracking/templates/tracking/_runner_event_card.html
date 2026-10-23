@@ -5,7 +5,7 @@
       <h3>{{ item.event_name }}</h3>
       <p class="muted">{{ item.schedule_label }}</p>
     </div>
-    <a class="text-link" href="{{ item.map_url }}">Open map</a>
+    {% if item.map_url %}<a class="text-link" href="{{ item.map_url }}">Open map</a>{% endif %}
   </header>
 
   <div class="event-participation__stats">

@@ -99,6 +99,37 @@ class RunnerAccountTests(TestCase):
         )
         self.assertContains(response, "sent to the Telegram group")
 
+    def test_draft_event_accepts_early_registration_and_shares_its_link(self):
+        draft = make_event(
+            name="Upcoming",
+            status=Event.Status.DRAFT,
+            schedule_starts_at=timezone.now() + timedelta(hours=2),
+            schedule_ends_at=timezone.now() + timedelta(hours=4),
+        )
+        self.assertTrue(JoinEventForm({"code": draft.enrollment_token}).is_valid())
+
+        self.client.force_login(self.runner)
+        join_url = reverse("join_event", args=[draft.enrollment_token])
+        self.assertEqual(self.client.get(join_url).status_code, 200)
+        self.assertRedirects(self.client.post(join_url), reverse("runner_dashboard"))
+        self.assertTrue(Participant.objects.filter(event=draft, user=self.runner).exists())
+
+        dashboard = self.client.get(reverse("runner_dashboard"))
+        self.assertContains(dashboard, "Upcoming")
+        self.assertContains(dashboard, "Telegram opens when the event starts")
+        self.assertNotIn("start=p_", dashboard.content.decode())
+
+        self.client.force_login(self.staff)
+        with patch("tracking.views.telegram.telegram_call") as send:
+            response = self.client.post(
+                reverse("event_share_telegram", args=[draft.pk]), follow=True
+            )
+        send.assert_called_once()
+        self.assertIn(join_url, send.call_args.args[1]["text"])
+        self.assertContains(response, "sent to the Telegram group")
+        self.assertContains(response, "Send to Telegram")
+        self.assertNotContains(response, "Spectator link")
+
     def test_share_button_reports_telegram_failure_and_requires_staff(self):
         self.client.force_login(self.staff)
         with patch(

@@ -92,7 +92,9 @@ class JoinEventForm(forms.Form):
     def clean_code(self):
         token = join_token(self.cleaned_data["code"])
         event = (
-            Event.objects.filter(status=Event.Status.OPEN, enrollment_token=token).first()
+            Event.objects.filter(
+                status__in=[Event.Status.DRAFT, Event.Status.OPEN], enrollment_token=token
+            ).first()
             if token
             else None
         )
