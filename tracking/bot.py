@@ -74,9 +74,11 @@ def _consent_message(participant: Participant) -> str:
         f"Joining {participant.event.name} as {participant.display_name}.\n\n"
         "Your display name and latest location will be visible to anyone with this event's link, "
         "including people outside the group. Send /stop in this private chat to remove yourself. "
-        "We keep no location history and clear saved coordinates when the event closes. Tracking "
-        "may be delayed or inaccurate. This app clears its own saved coordinates; Telegram keeps "
-        "its copy of the location message in your chat.\n\n"
+        "We keep the positions you send during this event so you can review your own track after "
+        "it closes. Event pages show only your latest location; your recorded track is not shown "
+        "to spectators or organizers. Tracks are deleted 30 days after the event closes, or when "
+        "you send /stop. Tracking may be delayed or inaccurate. This app clears its own saved "
+        "coordinates; Telegram keeps its copy of the location message in your chat.\n\n"
         "After you press Agree and share, you must share your location yourself. Telegram does not "
         "let this bot start it. In this private chat, tap the attachment icon, choose Location, then "
         "Share Live Location. A one-time location pin is not tracked."
@@ -191,7 +193,7 @@ def _handle_stop(update_id: int, message: dict, user: dict, chat: dict, now: dat
     )
     _send(
         chat_id,
-        "You are removed from the live map and your saved position is cleared. "
+        "You are removed from the live map and your saved position and recorded track are cleared. "
         "You can also stop sharing in Telegram from the live-location bar.",
     )
 

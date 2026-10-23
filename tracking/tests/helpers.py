@@ -3,6 +3,7 @@ from datetime import UTC, datetime, timedelta
 from django.utils import timezone
 
 from tracking.models import Event, Participant, TelegramConfig
+from tracking.state import CONSENT_VERSION
 
 NOW = datetime(2026, 10, 21, 12, 0, tzinfo=UTC)
 
@@ -36,7 +37,7 @@ def make_participant(event, user_id=1001, **kwargs):
         "display_name": "Alex",
         "withdrawn": False,
         "consented_at": NOW - timedelta(hours=1),
-        "consent_version": "2026-10-21",
+        "consent_version": CONSENT_VERSION,
         "control_at": NOW - timedelta(hours=1, minutes=5),
         "control_update_id": 10,
         "consent_update_id": 11,

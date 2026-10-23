@@ -1,6 +1,8 @@
 # Telegram Runner Tracking Implementation Plan
 
 > **Status:** Implemented. Automated suite and synthetic browser verification passed. Real Telegram device and production webhook checks remain blocked on organizer credentials, phones, and a reachable HTTPS deployment.
+>
+> **Revision 2026-10-23:** Runner-only track review with 30-day retention was added. Where this plan says no GPS history or that closure clears all coordinates, the revised design spec and README take precedence.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 

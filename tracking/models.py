@@ -116,3 +116,32 @@ class Participant(models.Model):
 
     def __str__(self):
         return f"{self.display_name} ({self.event})"
+
+
+class TrackPoint(models.Model):
+    participant = models.ForeignKey(
+        Participant, on_delete=models.CASCADE, related_name="track_points"
+    )
+    latitude = models.FloatField()
+    longitude = models.FloatField()
+    accuracy = models.FloatField(null=True, blank=True)
+    position_at = models.DateTimeField()
+    received_at = models.DateTimeField()
+    update_id = models.BigIntegerField()
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["participant", "update_id"],
+                name="one_track_point_per_update",
+            )
+        ]
+        indexes = [
+            models.Index(
+                fields=["participant", "position_at"],
+                name="track_point_time_idx",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.participant} at {self.position_at}"

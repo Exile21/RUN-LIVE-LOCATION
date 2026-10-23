@@ -1,0 +1,66 @@
+{% extends "tracking/base.html" %}
+{% load static %}
+{% block title %}{{ event.name }} track · Runline{% endblock %}
+{% block app_context %}Runner account{% endblock %}
+{% block head %}
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+  <meta name="robots" content="noindex, nofollow">
+{% endblock %}
+{% block content %}
+<section class="page track-page">
+  <div class="page-heading">
+    <div>
+      <h1>{{ event.name }}</h1>
+      <p class="lede">{{ participant.display_name }} · recorded track</p>
+    </div>
+    <a class="heading-action" href="{% url 'runner_dashboard' %}">Back to my events</a>
+  </div>
+
+  {% if point_count %}
+    <div class="track-summary">
+      <div>
+        <span class="stat-value">{{ point_count }}</span>
+        <span class="stat-label">Points</span>
+      </div>
+      <div>
+        <span class="stat-value">{{ duration }}</span>
+        <span class="stat-label">Tracked time</span>
+      </div>
+      <div>
+        <span class="stat-value">{{ participant.laps }}</span>
+        <span class="stat-label">Laps</span>
+      </div>
+    </div>
+    <p class="muted">
+      First fix {{ started_at|date:"D j M Y, H:i" }} · Last fix {{ ended_at|date:"D j M Y, H:i" }}
+    </p>
+    <div class="track-map-wrap">
+      <div id="track-map" role="region" aria-label="Recorded track for {{ event.name }}"></div>
+      <noscript><p class="map-noscript">Enable JavaScript to view your recorded track.</p></noscript>
+    </div>
+    <div class="track-controls">
+      <label for="track-slider">Recorded position</label>
+      <input id="track-slider" type="range" min="0" max="{{ point_count|add:'-1' }}" value="{{ point_count|add:'-1' }}" step="1">
+      <button type="button" class="button button--small button--ghost" id="track-play">Play</button>
+      <div class="track-controls__meta" role="status" aria-live="polite">
+        <time id="track-time">{{ ended_at|date:"D j M Y, H:i:s" }}</time>
+        <span id="track-point-label">Point {{ point_count }} of {{ point_count }}</span>
+      </div>
+      <p class="help">The gray line is the event route. GPS and Telegram delivery can lag or stop, so gaps and drift are expected. This track is private to you and deleted 30 days after the event closes.</p>
+    </div>
+    {{ track|json_script:"track-data" }}
+  {% else %}
+    <div class="empty">
+      <h2>No recorded track</h2>
+      <p>No positions were recorded for this event. Tracks are kept for 30 days after an event closes.</p>
+      <a class="button button--primary" href="{% url 'runner_dashboard' %}">Back to my events</a>
+    </div>
+  {% endif %}
+</section>
+{% endblock %}
+{% block scripts %}
+  {% if point_count %}
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin="" defer></script>
+    <script src="{% static 'tracking/track_replay.js' %}?v=20261023" defer></script>
+  {% endif %}
+{% endblock %}

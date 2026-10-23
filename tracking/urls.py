@@ -26,6 +26,7 @@ urlpatterns = [
     path("my/", views.runner_dashboard, name="runner_dashboard"),
     path("my/join/", views.runner_join, name="runner_join"),
     path("my/events/<uuid:public_id>/leave/", views.runner_leave, name="runner_leave"),
+    path("my/events/<uuid:public_id>/track/", views.runner_track, name="runner_track"),
     path("join/<str:token>/", views.join_event, name="join_event"),
     path("e/<str:token>/", views.spectator_detail, name="spectator_detail"),
     path("e/<str:token>/snapshot/", views.spectator_snapshot, name="spectator_snapshot"),

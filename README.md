@@ -9,13 +9,13 @@
 
 Runline lets organizers follow runners on the course map in real time, without asking anyone to install a new app. Runners share Telegram **Live Location** privately with a bot. Organizers see everyone on the GPX route from a dashboard, and spectators follow along through a read-only, link-only map.
 
-> Runline is not an emergency, safety-monitoring, or official race-timing system. GPS accuracy and Telegram delivery can be delayed or stop entirely, and a runner can share a spoofed location. Only the latest position per runner is kept.
+> Runline is not an emergency, safety-monitoring, or official race-timing system. GPS accuracy and Telegram delivery can be delayed or stop entirely, and a runner can share a spoofed location. Live pages show only the latest position per runner. Recorded tracks are private to each runner and deleted 30 days after the event closes.
 
 ## Why Runline
 
 - **No app to install.** Runners use Telegram, which they already have.
 - **Consent first.** Joining a group never grants GPS access. Each runner opts in explicitly and can leave with `/stop`.
-- **Privacy by default.** No location history, no replay, no Telegram IDs on public pages. Closing an event wipes saved positions.
+- **Privacy by default.** No public location history, replay, or Telegram IDs. Each runner can review only their own recorded track. Closing clears live positions, and tracks auto-delete 30 days later.
 - **Simple to host.** One Django process, SQLite, and a reverse proxy. No Redis, queues, WebSockets, or frontend build step.
 
 ## How it works
@@ -34,7 +34,7 @@ flowchart LR
 2. The bot is added to the event's Telegram group and posts an onboarding link.
 3. Each runner opens the private bot chat, agrees to the consent notice, and shares Live Location.
 4. The dashboard and spectator map refresh every five seconds and label runners as waiting, live, stale, or expired.
-5. Closing the event stops intake and clears all stored coordinates.
+5. Closing the event stops intake and clears live positions. Each runner can then review their recorded track until it is deleted 30 days after close.
 
 ## Tech stack
 
@@ -55,7 +55,7 @@ tracking/      Events, participants, bot logic, GPX parsing, views, map assets
   bot.py         Telegram update handling (consent, location, /stop)
   gpx.py         Safe GPX route parsing
   snapshots.py   Organizer and public JSON payloads
-  management/    register_webhook, check_telegram, poll_telegram
+  management/    register_webhook, check_telegram, poll_telegram, purge_track_points
 deploy/        Example Caddyfile
 docs/          Design spec and implementation plan
 scripts/       Local dev server wrapper
@@ -63,7 +63,8 @@ scripts/       Local dev server wrapper
 
 ## Features
 
-- Event lifecycle: draft → open → closed. Closing clears saved runner positions and cannot be undone.
+- Event lifecycle: draft → open → closed. Closing clears live runner positions and cannot be undone.
+- Runner-only track review: recorded positions are kept for 30 days after close, then deleted by a scheduled cleanup command.
 - Recurring event creation: daily, weekly, every 2 weeks, or monthly. The app creates a bounded series of draft events with the same route.
 - Closed events can be started again as a new draft with a new date. The original event, runner history, and laps stay unchanged.
 - Event schedule with local start and end times, shown on the organizer list and public map.
@@ -77,7 +78,8 @@ scripts/       Local dev server wrapper
 - Organizer map with route, search, runner selection, status, and last fix time.
 - Link-only spectator map with no organizer controls or Telegram identifiers.
 - `/stop`, group removal, event closure, finite live-location expiry, and stale-position handling.
-- No location history, replay, accounts for spectators, or native app.
+- `/stop` and group removal delete a runner's recorded track immediately.
+- No public location history or replay, no accounts for spectators, no native app.
 
 ## Requirements
 
@@ -125,7 +127,7 @@ python -c "import secrets; print(secrets.token_urlsafe(48))"
 5. Open the event. The app verifies that the chat is a group and that the bot is an administrator before changing the event to open.
 6. Open the event Info panel and press **Send to Telegram**. The bot posts the runner sign-up page to the group. Existing group members can still use the Telegram onboarding link instead.
 7. A new runner opens the sign-up page, creates a username and password, and confirms the event. Back on **My events**, they press **Connect Telegram**, press Start, read the consent notice, and tap **Agree and share**. The runner then opens Telegram's attachment menu → Location → **Share Live Location**. A one-time pin is not tracked.
-8. Organizers select a runner in the Runners panel and press **Add lap** to record a completed lap. Laps survive event closure; closing still clears saved positions.
+8. Organizers select a runner in the Runners panel and press **Add lap** to record a completed lap. Laps survive event closure. Closing clears live positions; the runner's recorded track stays in their account for 30 days.
 9. Share the separate spectator link with viewers. It is a bearer capability: anyone with it can view and copy visible positions. Rotate it if it leaks.
 
 The bot cannot start a private conversation with a runner. The runner must press Start from the onboarding link. Joining a group cannot automatically enable GPS sharing.
@@ -178,6 +180,14 @@ Required production environment:
 - `TELEGRAM_BOT_TOKEN`, `TELEGRAM_BOT_USERNAME`, `TELEGRAM_WEBHOOK_SECRET`
 
 The webhook secret may use only `A-Z`, `a-z`, `0-9`, `_`, and `-`. Use HTTPS, secure cookies, explicit hosts, and a reverse proxy you control. Do not expose SQLite, `.env`, source code, or uploaded routes as static files. Run the service under a dedicated operating-system user and restrict the database and `.env` to that user. Use a server clock synchronized over NTP; location freshness depends on it.
+
+Recorded runner tracks are retained for 30 days after event closure. Schedule the cleanup daily with cron or a systemd timer:
+
+```bash
+python manage.py purge_track_points
+# Docker Compose
+docker compose exec -T app python manage.py purge_track_points
+```
 
 SQLite has no row-level locking and limited write concurrency. Keep one worker, use the configured 20-second timeout and immediate transactions, and keep writes short. Move to PostgreSQL and more workers if measured contention or spectator traffic demands it. Standard OpenStreetMap tiles have no SLA and prohibit bulk/offline downloading; use another tile provider for a high-traffic public event and keep attribution visible.
 
@@ -258,7 +268,7 @@ docker compose exec app python manage.py poll_telegram
 
 ### Backups and deletion
 
-Closing an event, `/stop`, or group removal clears coordinates in the application database. It does not delete the runner's Telegram messages, copies already viewed or screenshotted by spectators, or coordinates retained in old database backups. Treat backups as sensitive location data and expire them on a stated schedule. Disclose backup retention to organizers and runners; do not promise deletion from backups unless you actually expire them.
+Closing an event clears live positions but keeps each runner's recorded track for 30 days. `/stop` and group removal delete that runner's track immediately. Deletion still does not remove the runner's Telegram messages, copies already viewed or screenshotted by spectators, or coordinates retained in old database backups. Treat backups as sensitive location data and expire them on a stated schedule. Disclose backup retention to organizers and runners; do not promise deletion from backups unless you actually expire them.
 
 ## Verification
 
@@ -275,7 +285,7 @@ python manage.py test -v 2
 Optional UI regression checks, if Node.js is installed (not required to run the app):
 
 ```bash
-node --test scripts/ui.test.cjs
+node --test scripts/*.test.cjs
 ```
 
 The mobile-first slate interface uses Anime.js for short state transitions and
@@ -288,8 +298,9 @@ Then use two real phones for the device checklist:
 - A non-member is refused.
 - Runner consents, shares Live Location while moving, and appears on the map.
 - Locking the phone, losing connectivity, and background restrictions behave as Telegram allows; report observed behavior rather than promising continuous delivery.
-- `/stop` in the private bot chat removes the runner and delayed location edits do not revive them.
-- Group removal and event closure remove positions from both organizer and spectator maps.
+- `/stop` in the private bot chat removes the runner, deletes their recorded track, and delayed location edits do not revive them.
+- Group removal clears positions and the recorded track. Event closure removes live positions from both organizer and spectator maps but keeps the runner's private track.
+- After closure, the runner sees **Review track**, can scrub the track, and another account cannot open it.
 - Rotating the spectator link makes old links fail.
 - A stale runner is labeled stale, not live.
 

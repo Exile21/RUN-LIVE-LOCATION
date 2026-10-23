@@ -4,11 +4,12 @@ from datetime import UTC, datetime, timedelta
 
 from django.db import IntegrityError, transaction
 
-from .models import Event, Participant
+from .models import Event, Participant, TrackPoint
 
 STALE_AFTER = timedelta(seconds=120)
 PENDING_TTL = timedelta(minutes=30)
-CONSENT_VERSION = "2026-10-21"
+TRACK_RETENTION = timedelta(days=30)
+CONSENT_VERSION = "2026-10-23"
 INDEFINITE_LIVE_PERIOD = 0x7FFFFFFF
 MIN_LIVE_PERIOD = 60
 MAX_LIVE_PERIOD = 86400
@@ -105,6 +106,7 @@ def close_event(event_id: int, *, now: datetime) -> Event:
         event.status = Event.Status.CLOSED
         event.closed_at = now
         event.save(update_fields=["status", "closed_at"])
+        # Closing clears latest positions but keeps recorded tracks for the runner's review.
         for participant in event.participants.all():
             _clear_position(participant)
             participant.withdrawn = True
@@ -324,6 +326,7 @@ def withdraw_runner(
         participant.pending_at = None
         participant.control_at = sent_at
         participant.control_update_id = update_id
+        participant.track_points.all().delete()
         _clear_position(participant)
         participant.save(
             update_fields=[
@@ -499,4 +502,15 @@ def apply_location(
                 *LOCATION_FIELDS,
             ]
         )
+        # Only record runners who consented to the version that discloses history.
+        if participant.consent_version == CONSENT_VERSION:
+            TrackPoint.objects.create(
+                participant=participant,
+                latitude=participant.latitude,
+                longitude=participant.longitude,
+                accuracy=participant.accuracy,
+                position_at=participant.position_at,
+                received_at=now,
+                update_id=update_id,
+            )
         return True

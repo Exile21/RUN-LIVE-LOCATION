@@ -1,7 +1,7 @@
 # Telegram runner tracking — MVP design
 
 Date: 2026-10-21
-Status: Implemented. Automated and synthetic browser verification complete; real Telegram phone verification remains pending.
+Status: Implemented. Automated and synthetic browser verification complete; real Telegram phone verification remains pending. Revised 2026-10-23: runner-only track review with 30-day retention.
 
 ## 1. Outcome and agreed decisions
 
@@ -15,9 +15,9 @@ Agreed decisions:
 - Organizers upload GPX route files.
 - The application uses Django, SQLite, and Leaflet on one server.
 - Maps poll every five seconds. This does not guarantee GPS updates every five seconds.
-- Keep only each runner's latest position, not a history or replay.
-- `/stop` removes the runner from public tracking and stops accepting their positions.
-- Closing an event clears its stored runner coordinates.
+- Live pages keep only each runner's latest position. A separate recorded track is visible only to the runner who created it, with no public replay.
+- `/stop` removes the runner from public tracking, stops accepting positions, and deletes their recorded track.
+- Closing an event clears live positions and keeps recorded tracks for 30 days, then deletes them.
 
 Joining a Telegram group cannot automatically grant GPS access. The bot welcomes new members, but runners must open the private bot chat, consent, and manually send Live Location. Existing group members can use the same onboarding link; the application does not enumerate an existing Telegram group roster.
 
@@ -49,7 +49,7 @@ No queue, Redis, WebSockets, native mobile application, or separate frontend bui
 3. Add the bot to the group as an administrator. A `/groupid` command in the group provides the numeric ID for setup; it does not change event settings.
 4. Validate the configured group and bot administrator status before opening the event. Fail closed if Telegram cannot verify setup.
 5. Copy the runner onboarding link and the separate spectator link. Organizers can post or pin the onboarding link for existing members.
-6. Open the event dashboard. Closing the event disables intake and public tracking, and clears saved coordinates in the same database transaction.
+6. Open the event dashboard. Closing the event disables intake and public tracking, clears live coordinates, and keeps the runner's recorded track for review in the same database transaction.
 
 The event lifecycle is draft, open, and closed. A closed event cannot reopen; create a new event for another activity. This prevents old location messages and consents from silently becoming active again.
 
@@ -63,7 +63,7 @@ The event lifecycle is draft, open, and closed. A closed event cannot reopen; cr
 6. Use the runner's Telegram first name as the initial public display name, show it in the consent notice, and allow staff to edit it. Do not publish usernames, phone numbers, Telegram IDs, or chat IDs.
 7. After consent, accept a newly sent private live-location message for this event. Do not activate a location message sent before consent, a forwarded location, or an edit to an unregistered message.
 
-Consent notice meaning: "Your display name and latest location will be visible to anyone with this event's link, including people outside the group. Use /stop to remove yourself. We keep no location history and clear saved coordinates when the event closes. Tracking may be delayed or inaccurate."
+Consent notice meaning: "Your display name and latest location will be visible to anyone with this event's link, including people outside the group. Use /stop to remove yourself. We keep the positions you send so you can review your own track after the event closes. Event pages show only your latest location; your track is not shown to spectators or organizers. Tracks are deleted 30 days after the event closes, or when you send /stop. Tracking may be delayed or inaccurate."
 
 ### 4.3 Location updates and stopping
 
@@ -100,7 +100,7 @@ Consent notice meaning: "Your display name and latest location will be visible t
 - Live: active sharing has not expired and its latest position is at most 120 seconds old.
 - Stale: active sharing has not expired, but its latest position is more than 120 seconds old. Retain the last marker with a visible stale label; do not present it as current.
 - Expired: the finite live-sharing period has ended. Show status without a position. Treat Telegram's indefinite live-period sentinel as indefinite, not an ordinary finite duration.
-- Stopped or removed: exclude the participant from spectator responses and clear coordinates. Staff may retain the non-location participation record.
+- Stopped or removed: exclude the participant from spectator responses, clear live coordinates, and delete the recorded track. Staff may retain the non-location participation record.
 
 Calculate freshness from the position's Telegram timestamp, not the time a dashboard fetched it. Store server receipt time separately. Validate timestamps and never let an implausible future timestamp extend live status. Offline browser state is separate from runner freshness.
 
@@ -112,9 +112,10 @@ Use a small set of models:
 
 - **Event:** name, lifecycle status, bound group ID, parsed route geometry, onboarding token, spectator token, created/opened/closed times.
 - **Participant:** event, Telegram user/private-chat identity, public display name, pending consent challenge, consent version/time, withdrawn state, active sharing message metadata, latest coordinates/accuracy, Telegram position time, receipt time, and update-order metadata.
+- **TrackPoint:** participant, coordinates/accuracy, Telegram position time, receipt time, and update ID. Visible only to the owning runner; deleted 30 days after close or immediately on withdrawal.
 - **Staff account:** Django's existing user/session models.
 
-Enforce unique participation per event/user and only one active tracking participation per user. Keep only the latest coordinates. Do not store raw Telegram payloads, original GPX uploads after parsing, or historical position rows.
+Enforce unique participation per event/user and only one active tracking participation per user. Keep only the latest coordinates on live surfaces. Do not store raw Telegram payloads, original GPX uploads after parsing, or track points beyond the retention period.
 
 Logical interfaces:
 
@@ -136,9 +137,9 @@ The webhook adapter validates input and Telegram identity; tracking logic enforc
 - Use HTTPS in production, secure session/CSRF cookies, explicit allowed hosts/origins, and `DEBUG=False`. Do not serve SQLite files, uploaded files, or environment files publicly.
 - Apply `no-store` to position responses and private pages. Add `noindex` to spectator pages. These controls reduce accidental retention/discovery, but cannot prevent spectators taking screenshots or copying locations.
 - Use a referrer policy that sends only the origin to third-party map assets/tiles, not the event token. Keep required OpenStreetMap attribution visible and follow its tile usage policy. No offline or bulk tile downloading.
-- Event closure, withdrawal, and observed membership removal clear application-held coordinates. Browser views discard old positions on their next successful refresh. Revocation cannot erase copies already obtained by spectators.
+- Event closure clears live positions but keeps the runner's recorded track for 30 days. Withdrawal and observed membership removal clear live coordinates and delete the track immediately. Browser views discard old positions on their next successful refresh. Revocation cannot erase copies already obtained by spectators.
 - Clearing application coordinates does not delete the runner's Telegram messages or change Telegram's own retention. Explain this distinction in setup and runner help.
-- The application keeps no GPS history. Any operator-created database backups can retain old coordinates until those backups expire; deployment instructions must disclose this and must not promise deletion from backups.
+- Recorded tracks are visible only to the owning runner and are purged 30 days after closure by `purge_track_points`. Any operator-created database backups can retain old coordinates until those backups expire; deployment instructions must disclose this and must not promise deletion from backups.
 
 ## 8. Failure behavior
 
@@ -184,7 +185,7 @@ Success means an opted-in runner's latest private Telegram position appears on t
 
 ## 11. Explicit non-goals
 
-No automatic or covert GPS access; native mobile app; guaranteed background update interval; location history/replay; offline maps; GPX exports of runners; official race timing/rankings/checkpoint results; SOS dispatch; wearable integration; payments; spectator accounts; multi-tenant permissions; or multi-server deployment.
+No automatic or covert GPS access; native mobile app; guaranteed background update interval; public location history or replay; offline maps; GPX exports of runners; official race timing/rankings/checkpoint results; SOS dispatch; wearable integration; payments; spectator accounts; multi-tenant permissions; or multi-server deployment. Runner-only track review is in scope.
 
 ## 12. Official references checked
 

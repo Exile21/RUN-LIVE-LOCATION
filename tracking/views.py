@@ -9,7 +9,7 @@ from django.contrib.auth import login
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.views import LoginView, redirect_to_login
 from django.core.exceptions import RequestDataTooBig, ValidationError
-from django.db.models import F
+from django.db.models import Count, F
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -189,6 +189,9 @@ def _participation_item(participant: Participant, *, now) -> dict:
         "can_leave": not active,
         "is_past": ended,
         "map_url": reverse("spectator_detail", args=[event.spectator_token]),
+        "track_url": reverse("runner_track", args=[participant.public_id])
+        if ended and getattr(participant, "track_count", 0)
+        else "",
     }
 
 
@@ -199,6 +202,7 @@ def runner_dashboard(request):
     participants = (
         Participant.objects.filter(user=request.user)
         .select_related("event")
+        .annotate(track_count=Count("track_points"))
         .order_by("-event__schedule_starts_at", "-created_at")
     )
     current = []
@@ -297,6 +301,54 @@ def runner_leave(request, public_id):
         participant.delete()
         messages.success(request, f"You left {name}.")
     return redirect("runner_dashboard")
+
+
+@never_cache
+@login_required
+def runner_track(request, public_id):
+    participant = get_object_or_404(
+        Participant.objects.select_related("event"),
+        public_id=public_id,
+        user=request.user,
+    )
+    points = list(
+        participant.track_points.order_by("position_at", "id").values(
+            "latitude", "longitude", "accuracy", "position_at"
+        )
+    )
+    track = {
+        "points": [
+            {
+                "lat": point["latitude"],
+                "lon": point["longitude"],
+                "accuracy": point["accuracy"],
+                "at": _iso(point["position_at"]),
+            }
+            for point in points
+        ],
+        "route": participant.event.route_segments,
+    }
+    started_at = points[0]["position_at"] if points else None
+    ended_at = points[-1]["position_at"] if points else None
+    return _private_page(
+        render(
+            request,
+            "tracking/runner_track.html",
+            {
+                "event": participant.event,
+                "participant": participant,
+                "point_count": len(points),
+                "started_at": started_at,
+                "ended_at": ended_at,
+                "duration": _duration_label((ended_at - started_at).total_seconds())
+                if points
+                else "",
+                "track": track,
+                "brand_url": reverse("runner_dashboard"),
+            },
+        ),
+        index=True,
+    )
 
 
 @never_cache

@@ -26,6 +26,9 @@
   </div>
 
   <footer class="event-participation__actions">
+    {% if item.track_url %}
+      <a class="button button--small button--ghost" href="{{ item.track_url }}">Review track</a>
+    {% endif %}
     {% if not item.is_past %}
       {% if item.claim_url %}
         <a class="button button--small button--ghost" href="{{ item.claim_url }}">{{ item.telegram_label }}</a>

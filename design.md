@@ -28,8 +28,9 @@ names remain aliases so map and template styles share the same semantic palette.
   badge, and an overlay caption. Group, segment count, and creation date remain
   available in native event details.
 - Runner account: signed-in runners see current and past events, elapsed time,
-  personal laps, and a Telegram connect link. The event Info panel can post the
-  sign-up page to the Telegram group.
+  personal laps, and a Telegram connect link. Past events can open a private
+  track replay with the event route and a time slider. The event Info panel can
+  post the sign-up page to the Telegram group.
 - Forms: visible labels, native inputs, one primary action, inline validation.
   New events can repeat daily, weekly, every 2 weeks, or monthly as a bounded
   draft series. Closed events can create a fresh draft with a new date.
