@@ -33,6 +33,8 @@
       </div>
     </div>
 
+    <p class="help">The new draft opens automatically at its start time and closes at its end time.</p>
+
     <p class="help">Original schedule: {% if event.schedule_starts_at %}{{ event.schedule_starts_at|date:"j M Y, H:i T" }} – {{ event.schedule_ends_at|date:"j M Y, H:i T" }}{% else %}Not scheduled{% endif %}</p>
 
     <div class="form-actions">

@@ -55,7 +55,7 @@ tracking/      Events, participants, bot logic, GPX parsing, views, map assets
   bot.py         Telegram update handling (consent, location, /stop)
   gpx.py         Safe GPX route parsing
   snapshots.py   Organizer and public JSON payloads
-  management/    register_webhook, check_telegram, poll_telegram, purge_track_points
+  management/    register_webhook, check_telegram, poll_telegram, run_event_schedule, purge_track_points
 deploy/        Example Caddyfile
 docs/          Design spec and implementation plan
 scripts/       Local dev server wrapper
@@ -112,6 +112,12 @@ python scripts/devserver.py
 
 Open http://127.0.0.1:8000/ and sign in. Without bot credentials you can create events, upload routes, and inspect the dashboard, but live Telegram ingestion will not work.
 
+To auto-open and auto-close events locally, run the scheduler in a second terminal:
+
+```bash
+python manage.py run_event_schedule --loop
+```
+
 Generate a secret key with:
 
 ```bash
@@ -124,7 +130,7 @@ python -c "import secrets; print(secrets.token_urlsafe(48))"
 2. Add the bot to the Telegram group **as an administrator**.
 3. In the group, send `/groupid`. Copy the negative ID into **Admin → Telegram settings**. New events reuse this group; the event form no longer asks for it.
 4. Create an event with start and end times and upload a GPX file.
-5. Open the event. The app verifies that the chat is a group and that the bot is an administrator before changing the event to open.
+5. The event opens automatically at its start time; the app verifies the bot is a group administrator before opening it. To start early, press **Open event**; the same check runs.
 6. Open the event Info panel and press **Send to Telegram**. The bot posts the runner sign-up page to the group. Existing group members can still use the Telegram onboarding link instead.
 7. A new runner opens the sign-up page, creates a username and password, and confirms the event. Back on **My events**, they press **Connect Telegram**, press Start, read the consent notice, and tap **Agree and share**. The runner then opens Telegram's attachment menu → Location → **Share Live Location**. A one-time pin is not tracked.
 8. Organizers select a runner in the Runners panel and press **Add lap** to record a completed lap. Laps survive event closure. Closing clears live positions; the runner's recorded track stays in their account for 30 days.
@@ -132,7 +138,7 @@ python -c "import secrets; print(secrets.token_urlsafe(48))"
 
 The bot cannot start a private conversation with a runner. The runner must press Start from the onboarding link. Joining a group cannot automatically enable GPS sharing.
 
-Event schedule times use `DJANGO_TIME_ZONE` (default `Asia/Jakarta`). The schedule is displayed and validated, but opening and closing the event remain manual; there is no automatic start/end job.
+Event schedule times use `DJANGO_TIME_ZONE` (default `Asia/Jakarta`). The scheduler closes open events at their end time, then opens due drafts at their start time. A draft whose whole window has already passed stays draft. You can still open or close early with the event buttons. Docker Compose runs the scheduler automatically; outside Docker, run `python manage.py run_event_schedule --loop` or call `python manage.py run_event_schedule` from cron.
 
 Register the webhook after the public HTTPS deployment is reachable:
 
@@ -166,6 +172,12 @@ gunicorn runlive.wsgi:application \
   --timeout 60
 ```
 
+Run the event scheduler as a separate long-running process (or invoke `run_event_schedule` from cron every minute):
+
+```bash
+python manage.py run_event_schedule --loop
+```
+
 The `deploy/Caddyfile` is a starting point. It takes the public origin from `PUBLIC_BASE_URL` and the app upstream from `APP_UPSTREAM` (default `127.0.0.1:8001`). It serves collected static files and disables URL access logging so capability-token paths do not end up in logs. If you enable logging, redact `/e/<token>/` paths before storing them.
 
 Required production environment:
@@ -193,7 +205,7 @@ SQLite has no row-level locking and limited write concurrency. Keep one worker, 
 
 ### Docker Compose
 
-`compose.yaml` runs one Gunicorn container and Caddy with automatic HTTPS. Caddy needs ports 80 and 443, and the `PUBLIC_BASE_URL` hostname must resolve to the server. Use the bare HTTPS origin, without a trailing slash or path. The app entrypoint applies migrations and collects static files before Gunicorn starts.
+`compose.yaml` runs one Gunicorn container, one scheduler container, and Caddy with automatic HTTPS. Caddy needs ports 80 and 443, and the `PUBLIC_BASE_URL` hostname must resolve to the server. Use the bare HTTPS origin, without a trailing slash or path. The app entrypoint applies migrations and collects static files before Gunicorn starts. The scheduler runs `run_event_schedule --loop`, checking every 30 seconds.
 
 Set `DJANGO_ALLOWED_HOSTS` and `DJANGO_CSRF_TRUSTED_ORIGINS` to the public hostname, then start the stack:
 
