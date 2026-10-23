@@ -190,13 +190,28 @@
       <button type="button" class="map-chip" id="fit-route">Fit route</button>
     </div>
     <div class="route-stats" id="route-stats" aria-label="Route summary" hidden>
-      <div>
-        <span class="route-stats__value" id="route-distance">—</span>
-        <span class="route-stats__label">Distance</span>
+      <div class="route-stats__row">
+        <div>
+          <span class="route-stats__value" id="route-distance">—</span>
+          <span class="route-stats__label">Distance</span>
+        </div>
+        <div id="route-climb-tile" hidden>
+          <span class="route-stats__value" id="route-climb">—</span>
+          <span class="route-stats__label">Climb</span>
+        </div>
       </div>
-      <div id="route-climb-tile" hidden>
-        <span class="route-stats__value" id="route-climb">—</span>
-        <span class="route-stats__label">Climb</span>
+      <div class="route-elevation" id="route-elevation" hidden>
+        <div class="route-elevation__head">
+          <span class="route-elevation__title">Elevation</span>
+          <span class="route-elevation__scale" aria-hidden="true"></span>
+          <output class="route-elevation__value" id="route-elevation-value">—</output>
+        </div>
+        <svg class="route-elevation__profile" id="route-elevation-profile" viewBox="0 0 260 52" preserveAspectRatio="none" role="img" aria-label="Route elevation profile"></svg>
+        <input class="route-elevation__slider" id="route-elevation-slider" type="range" min="0" max="1000" step="1" value="0" aria-label="Show elevation along the route">
+        <div class="route-elevation__meta">
+          <span id="route-elevation-distance">0 m</span>
+          <span id="route-elevation-range">—</span>
+        </div>
       </div>
     </div>
     <div class="map-warning" id="map-warning" hidden>Map tiles are unavailable. The runner list remains usable.</div>
@@ -226,6 +241,6 @@
 {% block app_tabbar %}{% endblock %}
 {% block scripts %}
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin="" defer></script>
-  <script src="{% static 'tracking/route.js' %}?v=20261023" defer></script>
-  <script src="{% static 'tracking/map.js' %}?v=20261023d" defer></script>
+  <script src="{% static 'tracking/route.js' %}?v=20261024" defer></script>
+  <script src="{% static 'tracking/map.js' %}?v=20261024b" defer></script>
 {% endblock %}

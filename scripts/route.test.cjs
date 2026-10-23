@@ -62,6 +62,57 @@ test("stats measure distance, climb, and missing elevation", () => {
   assert.equal(flat.hasElevation, false);
 });
 
+test("profile exposes elevation samples and the point at a route fraction", () => {
+  const route = setup();
+  const data = route.profile([[
+    [0, 0, 10],
+    [0, 0.001, 30],
+    [0, 0.002, 20],
+  ]]);
+  assert.equal(data.hasElevation, true);
+  assert.ok(data.distance > 220 && data.distance < 225);
+  assert.equal(Math.round(data.minElevation), 10);
+  assert.equal(Math.round(data.maxElevation), 30);
+  assert.ok(data.samples.length > 2);
+
+  const middle = route.pointAt(data, 0.5);
+  assert.ok(Math.abs(middle.lat) < 1e-9);
+  assert.ok(Math.abs(middle.lng - 0.001) < 1e-6);
+  assert.ok(Math.abs(middle.elevation - 30) < 1);
+  assert.ok(Math.abs(middle.distance - data.distance / 2) < 0.01);
+
+  assert.equal(Math.round(route.pointAt(data, 0).elevation), 10);
+  assert.equal(Math.round(route.pointAt(data, 1).elevation), 20);
+  assert.equal(route.profile([[[0, 0], [0, 0.001]]]).hasElevation, false);
+});
+
+test("elevation colors run from cool to warm", () => {
+  const route = setup();
+  assert.equal(route.elevationColor(0), "rgb(43, 108, 176)");
+  assert.equal(route.elevationColor(1), "rgb(197, 48, 48)");
+  assert.notEqual(route.elevationColor(0.5), route.elevationColor(1));
+  assert.equal(route.elevationColor(-1), route.elevationColor(0));
+  assert.equal(route.elevationColor(2), route.elevationColor(1));
+});
+
+test("gradient draw splits an elevation route into colored chunks", () => {
+  const { map, L } = leaflet();
+  const route = setup(L);
+  const group = route.draw(map, [[
+    [0, 0, 10],
+    [0, 0.001, 30],
+    [0, 0.002, 20],
+  ]], {
+    color: "#333",
+    gradient: true,
+    arrows: false,
+    endpoints: false,
+  });
+  const polylines = group.layers.filter((layer) => layer.kind === "polyline");
+  assert.ok(polylines.length > 2);
+  assert.ok(new Set(polylines.map((line) => line.options.color)).size > 1);
+});
+
 test("arrows are placed along the route in the direction of travel", () => {
   const route = setup();
   const east = route.arrows([[[0, 0], [0, 0.002]]]);

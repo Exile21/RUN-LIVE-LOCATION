@@ -4,6 +4,12 @@
   const EARTH_RADIUS_M = 6371008.8;
   const MAX_ARROWS = 16;
   const MIN_ARROW_SPACING_M = 150;
+  const ELEVATION_STOPS = [
+    [0, [43, 108, 176]],
+    [0.45, [56, 161, 105]],
+    [0.72, [214, 158, 46]],
+    [1, [197, 48, 48]],
+  ];
 
   function cleanSegments(segments) {
     if (!Array.isArray(segments)) return [];
@@ -73,6 +79,131 @@
     return { distance: distance, gain: gain, hasElevation: hasElevation };
   }
 
+  function elevationColor(fraction) {
+    const t = Math.min(1, Math.max(0, fraction));
+    for (let index = 1; index < ELEVATION_STOPS.length; index += 1) {
+      const [end, endColor] = ELEVATION_STOPS[index];
+      const [start, startColor] = ELEVATION_STOPS[index - 1];
+      if (t > end) continue;
+      const mix = end === start ? 0 : (t - start) / (end - start);
+      return "rgb("
+        + Math.round(startColor[0] + (endColor[0] - startColor[0]) * mix) + ", "
+        + Math.round(startColor[1] + (endColor[1] - startColor[1]) * mix) + ", "
+        + Math.round(startColor[2] + (endColor[2] - startColor[2]) * mix) + ")";
+    }
+    const last = ELEVATION_STOPS[ELEVATION_STOPS.length - 1][1];
+    return "rgb(" + last.join(", ") + ")";
+  }
+
+  function profile(segments) {
+    const clean = cleanSegments(segments);
+    const lengths = clean.map(function (segment) {
+      let length = 0;
+      for (let index = 1; index < segment.length; index += 1) {
+        length += haversine(segment[index - 1], segment[index]);
+      }
+      return length;
+    });
+    const distance = lengths.reduce(function (sum, length) { return sum + length; }, 0);
+    const hasElevation = clean.some(function (segment) {
+      return segment.some(function (point) { return point[2] !== null; });
+    });
+    if (!hasElevation || distance <= 0) {
+      return {
+        distance: distance,
+        hasElevation: false,
+        maxElevation: 0,
+        minElevation: 0,
+        samples: [],
+        segments: [],
+      };
+    }
+    const step = Math.max(distance / 220, 10);
+    const samples = [];
+    const sampledSegments = [];
+    let traveled = 0;
+    clean.forEach(function (segment, segmentIndex) {
+      const cumulative = [0];
+      for (let index = 1; index < segment.length; index += 1) {
+        cumulative.push(cumulative[index - 1] + haversine(segment[index - 1], segment[index]));
+      }
+      const length = lengths[segmentIndex];
+      if (length <= 0) return;
+      const count = Math.max(1, Math.ceil(length / step));
+      const segmentSamples = [];
+      let cursor = 0;
+      for (let index = 0; index <= count; index += 1) {
+        const target = length * index / count;
+        while (cursor < cumulative.length - 2 && cumulative[cursor + 1] < target) {
+          cursor += 1;
+        }
+        const start = segment[cursor];
+        const end = segment[cursor + 1];
+        const startDistance = cumulative[cursor];
+        const endDistance = cumulative[cursor + 1];
+        const fraction = endDistance > startDistance
+          ? (target - startDistance) / (endDistance - startDistance)
+          : 0;
+        const elevation = start[2] !== null && end[2] !== null
+          ? start[2] + (end[2] - start[2]) * fraction
+          : null;
+        const sample = {
+          lat: start[0] + (end[0] - start[0]) * fraction,
+          lng: start[1] + (end[1] - start[1]) * fraction,
+          elevation: elevation,
+          distance: traveled + target,
+        };
+        segmentSamples.push(sample);
+        samples.push(sample);
+      }
+      sampledSegments.push(segmentSamples);
+      traveled += length;
+    });
+    const elevations = samples
+      .filter(function (sample) { return sample.elevation !== null; })
+      .map(function (sample) { return sample.elevation; });
+    return {
+      distance: distance,
+      hasElevation: elevations.length > 0,
+      maxElevation: Math.max.apply(null, elevations),
+      minElevation: Math.min.apply(null, elevations),
+      samples: samples,
+      segments: sampledSegments,
+    };
+  }
+
+  function pointAt(data, fraction) {
+    if (!data || !data.samples || !data.samples.length || data.distance <= 0) return null;
+    const target = Math.min(1, Math.max(0, fraction)) * data.distance;
+    let low = 0;
+    let high = data.samples.length - 1;
+    while (low < high) {
+      const middle = Math.floor((low + high) / 2);
+      if (data.samples[middle].distance < target) low = middle + 1;
+      else high = middle;
+    }
+    const next = data.samples[low];
+    if (low === 0 || next.distance <= target) {
+      return {
+        lat: next.lat,
+        lng: next.lng,
+        elevation: next.elevation,
+        distance: next.distance,
+      };
+    }
+    const previous = data.samples[low - 1];
+    const span = next.distance - previous.distance;
+    const mix = span > 0 ? (target - previous.distance) / span : 0;
+    return {
+      lat: previous.lat + (next.lat - previous.lat) * mix,
+      lng: previous.lng + (next.lng - previous.lng) * mix,
+      elevation: previous.elevation !== null && next.elevation !== null
+        ? previous.elevation + (next.elevation - previous.elevation) * mix
+        : (previous.elevation === null ? next.elevation : previous.elevation),
+      distance: target,
+    };
+  }
+
   function arrows(segments) {
     const clean = cleanSegments(segments);
     const lengths = clean.map(function (segment) {
@@ -136,19 +267,40 @@
     options = options || {};
     const clean = cleanSegments(segments);
     const group = L.layerGroup();
-    clean.forEach(function (segment) {
-      L.polyline(
-        segment.map(function (point) { return [point[0], point[1]]; }),
-        {
-          color: options.color,
-          weight: options.weight || 4,
-          opacity: options.opacity === undefined ? 0.72 : options.opacity,
-          dashArray: options.dashArray || null,
-          lineJoin: "round",
-          lineCap: "round",
+    const lineOptions = {
+      weight: options.weight || 4,
+      opacity: options.opacity === undefined ? 0.72 : options.opacity,
+      dashArray: options.dashArray || null,
+      lineJoin: "round",
+      lineCap: "round",
+    };
+    const gradient = options.gradient ? profile(segments) : null;
+    if (gradient && gradient.hasElevation && gradient.maxElevation > gradient.minElevation) {
+      const span = gradient.maxElevation - gradient.minElevation;
+      gradient.segments.forEach(function (samples) {
+        for (let index = 1; index < samples.length; index += 1) {
+          const start = samples[index - 1];
+          const end = samples[index];
+          const elevation = start.elevation !== null && end.elevation !== null
+            ? (start.elevation + end.elevation) / 2
+            : (start.elevation === null ? end.elevation : start.elevation);
+          const color = elevation === null
+            ? options.color
+            : elevationColor((elevation - gradient.minElevation) / span);
+          L.polyline(
+            [[start.lat, start.lng], [end.lat, end.lng]],
+            Object.assign({}, lineOptions, { color: color })
+          ).addTo(group);
         }
-      ).addTo(group);
-    });
+      });
+    } else {
+      clean.forEach(function (segment) {
+        L.polyline(
+          segment.map(function (point) { return [point[0], point[1]]; }),
+          Object.assign({}, lineOptions, { color: options.color })
+        ).addTo(group);
+      });
+    }
     if (options.arrows !== false) {
       arrows(segments).forEach(function (point) {
         L.marker([point.lat, point.lng], {
@@ -190,9 +342,12 @@
     arrows: arrows,
     bearing: bearing,
     draw: draw,
+    elevationColor: elevationColor,
     formatDistance: formatDistance,
     formatGain: formatGain,
     haversine: haversine,
+    pointAt: pointAt,
+    profile: profile,
     stats: stats,
   };
 })();

@@ -36,6 +36,12 @@
   const routeDistance = document.getElementById("route-distance");
   const routeClimbTile = document.getElementById("route-climb-tile");
   const routeClimb = document.getElementById("route-climb");
+  const routeElevation = document.getElementById("route-elevation");
+  const routeElevationProfile = document.getElementById("route-elevation-profile");
+  const routeElevationSlider = document.getElementById("route-elevation-slider");
+  const routeElevationValue = document.getElementById("route-elevation-value");
+  const routeElevationDistance = document.getElementById("route-elevation-distance");
+  const routeElevationRange = document.getElementById("route-elevation-range");
 
   // ui.js is deferred, so resolve it lazily rather than at parse time.
   function ui() {
@@ -51,10 +57,16 @@
   };
   const STALE_MS = 120000;
   const POLL_MS = 5000;
+  const PROFILE_WIDTH = 260;
+  const PROFILE_HEIGHT = 52;
+  const PROFILE_PAD = 3;
 
   let snapshot = JSON.parse(initialElement.textContent);
   let map = null;
   let routeLayer = null;
+  let elevationData = null;
+  let elevationChart = null;
+  let elevationMarker = null;
   let routeSignature = "";
   let mapFitted = false;
   let tileLayer = null;
@@ -308,11 +320,13 @@
       routeLayer = window.RunlineRoute.draw(map, segments || [], {
         color: getComputedStyle(mapElement).getPropertyValue("--color-route").trim(),
         weight: 4,
-        opacity: 0.72,
+        opacity: 0.82,
         arrows: true,
         endpoints: true,
+        gradient: true,
       });
       updateRouteStats(window.RunlineRoute.stats(segments || []));
+      updateRouteElevation(segments || []);
     } else {
       routeLayer = L.layerGroup();
       (segments || []).forEach(function (segment) {
@@ -349,6 +363,189 @@
     if (routeClimb && summary.hasElevation) {
       routeClimb.textContent = window.RunlineRoute.formatGain(summary.gain);
     }
+  }
+
+  function svgElement(name, attributes) {
+    const element = document.createElementNS("http://www.w3.org/2000/svg", name);
+    Object.keys(attributes || {}).forEach(function (key) {
+      element.setAttribute(key, attributes[key]);
+    });
+    return element;
+  }
+
+  function renderElevationProfile(data) {
+    if (!routeElevationProfile || !data) return false;
+    const chartSamples = data.samples.filter(function (sample) {
+      return sample.elevation !== null;
+    });
+    if (chartSamples.length < 2) return false;
+    routeElevationProfile.replaceChildren();
+    const top = PROFILE_PAD;
+    const base = PROFILE_HEIGHT - PROFILE_PAD;
+    const plotWidth = PROFILE_WIDTH - 2 * PROFILE_PAD;
+    const span = Math.max(data.maxElevation - data.minElevation, 1);
+    function x(distance) {
+      return PROFILE_PAD + (distance / data.distance) * plotWidth;
+    }
+    function y(elevation) {
+      return top + (1 - (elevation - data.minElevation) / span) * (base - top);
+    }
+    const gradient = svgElement("linearGradient", {
+      id: "route-elevation-fill",
+      x1: "0",
+      y1: "1",
+      x2: "0",
+      y2: "0",
+    });
+    [0, 0.45, 0.72, 1].forEach(function (stop) {
+      gradient.appendChild(svgElement("stop", {
+        offset: stop * 100 + "%",
+        "stop-color": window.RunlineRoute.elevationColor(stop),
+        "stop-opacity": "0.28",
+      }));
+    });
+    const defs = svgElement("defs");
+    defs.appendChild(gradient);
+    routeElevationProfile.appendChild(defs);
+    let linePath = "";
+    const areaParts = [];
+    chartSamples.forEach(function (sample, index) {
+      const pointX = x(sample.distance).toFixed(1);
+      const pointY = y(sample.elevation).toFixed(1);
+      linePath += (index === 0 ? "M" : " L") + pointX + " " + pointY;
+      areaParts.push(pointX + " " + pointY);
+    });
+    const firstX = x(chartSamples[0].distance).toFixed(1);
+    const lastX = x(chartSamples[chartSamples.length - 1].distance).toFixed(1);
+    routeElevationProfile.appendChild(svgElement("path", {
+      class: "route-elevation__area",
+      d: "M" + areaParts.join(" L") + " L" + lastX + " " + base.toFixed(1)
+        + " L" + firstX + " " + base.toFixed(1) + " Z",
+    }));
+    routeElevationProfile.appendChild(svgElement("path", {
+      class: "route-elevation__line",
+      d: linePath,
+    }));
+    const cursorLine = svgElement("line", {
+      class: "route-elevation__cursor",
+      x1: PROFILE_PAD,
+      y1: top,
+      x2: PROFILE_PAD,
+      y2: base,
+    });
+    const cursorDot = svgElement("circle", {
+      class: "route-elevation__dot",
+      cx: PROFILE_PAD,
+      cy: base,
+      r: 3.5,
+    });
+    routeElevationProfile.appendChild(cursorLine);
+    routeElevationProfile.appendChild(cursorDot);
+    elevationChart = {
+      base: base,
+      dot: cursorDot,
+      left: PROFILE_PAD,
+      line: cursorLine,
+      plotWidth: plotWidth,
+      top: top,
+    };
+    return true;
+  }
+
+  function removeElevationMarker() {
+    if (elevationMarker && map) map.removeLayer(elevationMarker);
+    elevationMarker = null;
+  }
+
+  function elevationCursorIcon(color) {
+    return L.divIcon({
+      className: "elevation-cursor",
+      html: '<span style="background-color: ' + color + '"></span>',
+      iconSize: [18, 18],
+      iconAnchor: [9, 9],
+    });
+  }
+
+  function setElevationFraction(fraction) {
+    if (!elevationData || !elevationChart || !map) return;
+    const sample = window.RunlineRoute.pointAt(elevationData, fraction);
+    if (!sample) return;
+    const span = Math.max(elevationData.maxElevation - elevationData.minElevation, 1);
+    const elevationRatio = sample.elevation === null
+      ? 0.5
+      : (sample.elevation - elevationData.minElevation) / span;
+    const color = window.RunlineRoute.elevationColor(elevationRatio);
+    if (!elevationMarker) {
+      elevationMarker = L.marker([sample.lat, sample.lng], {
+        icon: elevationCursorIcon(color),
+        interactive: false,
+        keyboard: false,
+        zIndexOffset: 2000,
+      }).addTo(map);
+    } else {
+      elevationMarker.setLatLng([sample.lat, sample.lng]);
+      elevationMarker.setIcon(elevationCursorIcon(color));
+    }
+    if (routeElevationValue) {
+      routeElevationValue.textContent = sample.elevation === null
+        ? "—"
+        : window.RunlineRoute.formatGain(sample.elevation);
+    }
+    if (routeElevationDistance) {
+      routeElevationDistance.textContent = window.RunlineRoute.formatDistance(sample.distance);
+    }
+    const cursorX = elevationChart.left
+      + (sample.distance / elevationData.distance) * elevationChart.plotWidth;
+    const cursorElevation = sample.elevation === null
+      ? elevationData.minElevation
+      : sample.elevation;
+    const cursorY = elevationChart.base
+      - ((cursorElevation - elevationData.minElevation) / span)
+        * (elevationChart.base - elevationChart.top);
+    elevationChart.line.setAttribute("x1", cursorX.toFixed(1));
+    elevationChart.line.setAttribute("x2", cursorX.toFixed(1));
+    elevationChart.dot.setAttribute("cx", cursorX.toFixed(1));
+    elevationChart.dot.setAttribute("cy", cursorY.toFixed(1));
+    if (routeElevationSlider) {
+      routeElevationSlider.setAttribute(
+        "aria-valuetext",
+        window.RunlineRoute.formatDistance(sample.distance)
+          + " along route, "
+          + (sample.elevation === null
+            ? "elevation unavailable"
+            : window.RunlineRoute.formatGain(sample.elevation) + " elevation")
+      );
+    }
+  }
+
+  function updateRouteElevation(segments) {
+    if (!routeElevation || !routeElevationProfile || !routeElevationSlider) return;
+    if (!window.RunlineRoute || typeof window.RunlineRoute.profile !== "function") {
+      routeElevation.hidden = true;
+      return;
+    }
+    const data = window.RunlineRoute.profile(segments || []);
+    if (!data.hasElevation || !renderElevationProfile(data)) {
+      elevationData = null;
+      elevationChart = null;
+      routeElevation.hidden = true;
+      removeElevationMarker();
+      return;
+    }
+    elevationData = data;
+    routeElevation.hidden = false;
+    if (routeElevationRange) {
+      routeElevationRange.textContent = Math.round(data.minElevation)
+        + "–" + Math.round(data.maxElevation) + " m";
+    }
+    routeElevationProfile.setAttribute(
+      "aria-label",
+      "Elevation profile from " + Math.round(data.minElevation)
+        + " to " + Math.round(data.maxElevation) + " metres over "
+        + window.RunlineRoute.formatDistance(data.distance)
+    );
+    routeElevationSlider.value = "0";
+    setElevationFraction(0);
   }
 
   function fitRoute() {
@@ -569,6 +766,11 @@
 
   function init() {
     if (searchElement) searchElement.addEventListener("input", applyFilter);
+    if (routeElevationSlider) {
+      routeElevationSlider.addEventListener("input", function () {
+        setElevationFraction(Number(routeElevationSlider.value) / 1000);
+      });
+    }
     document.addEventListener("runline:tab", function (event) {
       if (!map || !event.detail || event.detail.tab !== "map") return;
       window.requestAnimationFrame(function () { map.invalidateSize(); });
