@@ -59,6 +59,11 @@
         {% endif %}
 
         {% if is_staff_view %}
+          {% if event.status == "closed" %}
+            <div class="control-actions">
+              <a class="button button--primary button--small" href="{% url 'event_restart' pk=event.pk %}">Start again</a>
+            </div>
+          {% endif %}
           <div class="control-actions">
             {% if event.status != "closed" %}
               <a class="button button--ghost button--small" href="{% url 'event_edit' pk=event.pk %}">Edit event</a>

@@ -1,0 +1,44 @@
+{% extends "tracking/base.html" %}
+{% block title %}Start {{ event.name }} again · Runline{% endblock %}
+{% block content %}
+<section class="page page--narrow">
+  <div class="page-heading">
+    <div>
+      <p class="eyebrow">Closed event</p>
+      <h1>Start again</h1>
+      <p class="lede">Create a new draft from {{ event.name }} with a new date. The original event, runner history, and laps stay unchanged.</p>
+    </div>
+  </div>
+
+  <form method="post" class="form-card">
+    {% csrf_token %}
+    {% if form.non_field_errors %}
+      <div class="form-errors" role="alert">
+        {% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}
+      </div>
+    {% endif %}
+
+    <div class="schedule-grid">
+      <div class="field">
+        <label for="{{ form.schedule_starts_at.id_for_label }}">New start</label>
+        {{ form.schedule_starts_at }}
+        <p class="help">{{ form.schedule_starts_at.help_text }}</p>
+        {% if form.schedule_starts_at.errors %}<div>{% for error in form.schedule_starts_at.errors %}<p class="field-error">{{ error }}</p>{% endfor %}</div>{% endif %}
+      </div>
+      <div class="field">
+        <label for="{{ form.schedule_ends_at.id_for_label }}">New end</label>
+        {{ form.schedule_ends_at }}
+        <p class="help">{{ form.schedule_ends_at.help_text }}</p>
+        {% if form.schedule_ends_at.errors %}<div>{% for error in form.schedule_ends_at.errors %}<p class="field-error">{{ error }}</p>{% endfor %}</div>{% endif %}
+      </div>
+    </div>
+
+    <p class="help">Original schedule: {% if event.schedule_starts_at %}{{ event.schedule_starts_at|date:"j M Y, H:i T" }} – {{ event.schedule_ends_at|date:"j M Y, H:i T" }}{% else %}Not scheduled{% endif %}</p>
+
+    <div class="form-actions">
+      <button class="button button--primary" type="submit">Create draft</button>
+      <a class="button button--ghost" href="{% url 'event_detail' pk=event.pk %}">Cancel</a>
+    </div>
+  </form>
+</section>
+{% endblock %}

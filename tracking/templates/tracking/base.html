@@ -80,7 +80,7 @@
     {% if user.is_authenticated %}
       <nav class="app-tabbar" aria-label="Primary">
         {% if user.is_staff %}
-          <a class="app-tab{% if request.resolver_match.url_name == 'event_list' or request.resolver_match.url_name == 'event_edit' %} is-active{% endif %}" href="{% url 'event_list' %}"{% if request.resolver_match.url_name == 'event_list' or request.resolver_match.url_name == 'event_edit' %} aria-current="page"{% endif %}>
+          <a class="app-tab{% if request.resolver_match.url_name == 'event_list' or request.resolver_match.url_name == 'event_edit' or request.resolver_match.url_name == 'event_restart' %} is-active{% endif %}" href="{% url 'event_list' %}"{% if request.resolver_match.url_name == 'event_list' or request.resolver_match.url_name == 'event_edit' or request.resolver_match.url_name == 'event_restart' %} aria-current="page"{% endif %}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 11.5 12 5l8 6.5V20a1 1 0 0 1-1 1h-4.5v-6h-5v6H5a1 1 0 0 1-1-1v-8.5Z"/></svg>
             <span>Events</span>
           </a>

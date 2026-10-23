@@ -64,6 +64,8 @@ scripts/       Local dev server wrapper
 ## Features
 
 - Event lifecycle: draft → open → closed. Closing clears saved runner positions and cannot be undone.
+- Recurring event creation: daily, weekly, every 2 weeks, or monthly. The app creates a bounded series of draft events with the same route.
+- Closed events can be started again as a new draft with a new date. The original event, runner history, and laps stay unchanged.
 - Event schedule with local start and end times, shown on the organizer list and public map.
 - One Telegram group configured in Django Admin and reused by new events.
 - Runner onboarding through a private Telegram chat. Joining the group never grants GPS access.

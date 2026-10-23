@@ -39,6 +39,23 @@
       </div>
     </div>
 
+    {% if not event %}
+      <div class="schedule-grid">
+        <div class="field">
+          <label for="{{ form.recurrence.id_for_label }}">Repeats</label>
+          {{ form.recurrence }}
+          <p class="help">{{ form.recurrence.help_text }}</p>
+          {% if form.recurrence.errors %}<div>{% for error in form.recurrence.errors %}<p class="field-error">{{ error }}</p>{% endfor %}</div>{% endif %}
+        </div>
+        <div class="field">
+          <label for="{{ form.occurrences.id_for_label }}">Total events</label>
+          {{ form.occurrences }}
+          <p class="help">{{ form.occurrences.help_text }}</p>
+          {% if form.occurrences.errors %}<div>{% for error in form.occurrences.errors %}<p class="field-error">{{ error }}</p>{% endfor %}</div>{% endif %}
+        </div>
+      </div>
+    {% endif %}
+
     <div class="config-note">
       <div>
         <h2>Telegram group</h2>

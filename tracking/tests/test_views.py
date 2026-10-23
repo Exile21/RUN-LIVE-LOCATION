@@ -4,6 +4,7 @@ from django.contrib.auth import get_user_model
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
+from django.utils import timezone
 
 from tracking.models import Event, Participant
 from tracking.telegram import TelegramError
@@ -241,6 +242,97 @@ class AccessTests(TestCase):
         response = self.client.post(reverse("event_create"), data={"name": "", "group_id": ""})
         self.assertEqual(response.status_code, 200)
         self.assertIn("Upload a GPX route", response.content.decode())
+
+    def _gpx_upload(self):
+        return SimpleUploadedFile(
+            "route.gpx",
+            (
+                b'<gpx><trk><trkseg>'
+                b'<trkpt lat="1.0" lon="2.0"/><trkpt lat="1.1" lon="2.1"/>'
+                b"</trkseg></trk></gpx>"
+            ),
+            content_type="application/gpx+xml",
+        )
+
+    def test_weekly_recurrence_creates_draft_events(self):
+        self.client.force_login(self.staff)
+        response = self.client.post(
+            reverse("event_create"),
+            data={
+                "name": "Weekly series",
+                "schedule_starts_at": "2026-11-01T09:00",
+                "schedule_ends_at": "2026-11-01T10:00",
+                "recurrence": "weekly",
+                "occurrences": "3",
+                "route_file": self._gpx_upload(),
+            },
+        )
+        self.assertRedirects(response, reverse("event_list"), fetch_redirect_response=False)
+        events = list(
+            Event.objects.filter(name="Weekly series").order_by("schedule_starts_at")
+        )
+        self.assertEqual(len(events), 3)
+        self.assertTrue(all(event.status == Event.Status.DRAFT for event in events))
+        self.assertEqual(
+            [event.schedule_starts_at.date().isoformat() for event in events],
+            ["2026-11-01", "2026-11-08", "2026-11-15"],
+        )
+
+    def test_monthly_recurrence_keeps_month_end_dates(self):
+        self.client.force_login(self.staff)
+        response = self.client.post(
+            reverse("event_create"),
+            data={
+                "name": "Monthly series",
+                "schedule_starts_at": "2027-01-31T09:00",
+                "schedule_ends_at": "2027-01-31T10:00",
+                "recurrence": "monthly",
+                "occurrences": "3",
+                "route_file": self._gpx_upload(),
+            },
+        )
+        self.assertRedirects(response, reverse("event_list"), fetch_redirect_response=False)
+        events = list(
+            Event.objects.filter(name="Monthly series").order_by("schedule_starts_at")
+        )
+        self.assertEqual(
+            [event.schedule_starts_at.date().isoformat() for event in events],
+            ["2027-01-31", "2027-02-28", "2027-03-31"],
+        )
+
+    def test_closed_event_can_start_again_with_a_new_date(self):
+        self.event.status = Event.Status.CLOSED
+        self.event.save(update_fields=["status"])
+        self.client.force_login(self.staff)
+        page = self.client.get(reverse("event_restart", args=[self.event.pk]))
+        self.assertEqual(page.status_code, 200)
+        self.assertContains(page, "Start again")
+
+        response = self.client.post(
+            reverse("event_restart", args=[self.event.pk]),
+            data={
+                "schedule_starts_at": "2026-12-05T07:00",
+                "schedule_ends_at": "2026-12-05T09:00",
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        new_event = Event.objects.get(pk=response.url.rstrip("/").split("/")[-1])
+        self.assertEqual(new_event.status, Event.Status.DRAFT)
+        self.assertEqual(new_event.name, self.event.name)
+        self.assertEqual(new_event.group_id, self.event.group_id)
+        self.assertEqual(new_event.route_segments, self.event.route_segments)
+        self.assertEqual(new_event.schedule_starts_at.date().isoformat(), "2026-12-05")
+        self.assertEqual(new_event.participants.count(), 0)
+        self.assertEqual(self.event.participants.count(), 1)
+
+    def test_open_event_cannot_be_restarted(self):
+        self.client.force_login(self.staff)
+        response = self.client.get(reverse("event_restart", args=[self.event.pk]))
+        self.assertRedirects(
+            response,
+            reverse("event_detail", args=[self.event.pk]),
+            fetch_redirect_response=False,
+        )
 
     def test_mobile_app_shell_is_rendered_on_organizer_pages(self):
         self.client.force_login(self.staff)

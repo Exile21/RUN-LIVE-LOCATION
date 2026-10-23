@@ -31,6 +31,8 @@ names remain aliases so map and template styles share the same semantic palette.
   personal laps, and a Telegram connect link. The event Info panel can post the
   sign-up page to the Telegram group.
 - Forms: visible labels, native inputs, one primary action, inline validation.
+  New events can repeat daily, weekly, every 2 weeks, or monthly as a bounded
+  draft series. Closed events can create a fresh draft with a new date.
 - Preserve all privacy and safety wording and irreversible-action confirmations.
 - Content remains available when UI motion or JavaScript fails; maps require JavaScript.
 

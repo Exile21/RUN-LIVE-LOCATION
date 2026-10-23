@@ -20,7 +20,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
 from . import bot, telegram
-from .forms import EventForm, JoinEventForm, RunnerSignupForm
+from .forms import EventForm, JoinEventForm, RestartEventForm, RunnerSignupForm
 from .gpx import route_preview_path
 from .models import Event, Participant, TelegramConfig
 from .snapshots import event_snapshot
@@ -321,6 +321,11 @@ def event_create(request):
         form = EventForm(request.POST, request.FILES)
         if form.is_valid():
             event = form.save()
+            if len(form.created_events) > 1:
+                messages.success(
+                    request, f"{len(form.created_events)} draft events created."
+                )
+                return redirect("event_list")
             messages.success(request, "Event created.")
             return redirect("event_detail", pk=event.pk)
     else:
@@ -330,6 +335,33 @@ def event_create(request):
             request,
             "tracking/event_form.html",
             {"form": form, "telegram_config": TelegramConfig.load()},
+        )
+    )
+
+
+@never_cache
+@staff_page
+def event_restart(request, pk: int):
+    event = get_object_or_404(Event, pk=pk)
+    if event.status != Event.Status.CLOSED:
+        messages.error(request, "Only a closed event can be started again.")
+        return redirect("event_detail", pk=event.pk)
+    if request.method == "POST":
+        form = RestartEventForm(request.POST, event=event)
+        if form.is_valid():
+            new_event = form.save()
+            messages.success(
+                request,
+                f"{new_event.name} scheduled again as a new draft event.",
+            )
+            return redirect("event_detail", pk=new_event.pk)
+    else:
+        form = RestartEventForm(event=event)
+    return _private_page(
+        render(
+            request,
+            "tracking/event_restart.html",
+            {"event": event, "form": form},
         )
     )
 
