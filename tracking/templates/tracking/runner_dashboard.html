@@ -18,6 +18,7 @@
         <h2 id="current-heading">Current events</h2>
         <span class="muted">{{ current|length }}</span>
       </div>
+      {% include "tracking/_live_location_guide.html" %}
       <div class="dashboard-grid">
         {% for item in current %}
           {% include "tracking/_runner_event_card.html" with item=item %}

@@ -118,6 +118,12 @@ class RunnerAccountTests(TestCase):
             302,
         )
 
+    def test_event_info_shows_live_location_guide(self):
+        self.client.force_login(self.staff)
+        response = self.client.get(reverse("event_detail", args=[self.event.pk]))
+        self.assertContains(response, "How to share Live Location")
+        self.assertContains(response, "not the group")
+
     def test_runner_join_creates_a_registration_and_claim_link(self):
         self.client.force_login(self.runner)
         response = self.client.get(reverse("join_event", args=[self.event.enrollment_token]))
@@ -134,6 +140,8 @@ class RunnerAccountTests(TestCase):
         self.assertContains(dashboard, self.event.name)
         self.assertContains(dashboard, "Connect Telegram")
         self.assertContains(dashboard, f"start=p_{participant.public_id.hex}")
+        self.assertContains(dashboard, "How to share Live Location")
+        self.assertContains(dashboard, "not the group")
         self.assertContains(dashboard, "Elapsed")
         self.assertContains(dashboard, "Laps")
 

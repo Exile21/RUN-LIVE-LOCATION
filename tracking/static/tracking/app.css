@@ -275,6 +275,16 @@ code, .mono { font-family: var(--font-outlier); font-size: 0.9em; }
   background: var(--color-surface); border: var(--rule-hair) solid var(--color-rule);
   font-size: var(--text-sm);
 }
+.live-guide {
+  display: grid; gap: var(--space-xs);
+  padding: var(--space-md); border: var(--rule-hair) solid var(--color-rule);
+  border-radius: var(--r-lg); background: var(--color-paper-2);
+  font-size: var(--text-sm);
+}
+.live-guide h3 { margin: 0; font-size: var(--text-sm); }
+.live-guide ol { margin: 0; padding-left: var(--space-md); color: var(--color-ink-2); }
+.live-guide li + li { margin-top: var(--space-3xs); }
+.live-guide .help { margin: 0; }
 .auth-switch { margin: 0; text-align: center; color: var(--color-muted); font-size: var(--text-sm); }
 .auth-switch a { color: var(--color-ink); font-weight: 600; }
 .help ul, .auth .helptext { margin: var(--space-2xs) 0 0; padding-left: var(--space-md); color: var(--color-muted); font-size: var(--text-xs); }

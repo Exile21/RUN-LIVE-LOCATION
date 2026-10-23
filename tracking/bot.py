@@ -9,7 +9,9 @@ from .models import Event, Participant
 
 FUTURE_TOLERANCE = timedelta(seconds=30)
 PRIVATE_HELP = (
-    "Send /start from your event's link to join a live map. "
+    "To appear on the live map, open your event's bot link and press Start. "
+    "Then agree, and in this private chat tap the attachment icon, choose Location, "
+    "then Share Live Location. A one-time location pin is not tracked. "
     "Runners must join the event group first. Use /stop to leave."
 )
 SHARE_INSTRUCTIONS = (
@@ -75,8 +77,9 @@ def _consent_message(participant: Participant) -> str:
         "We keep no location history and clear saved coordinates when the event closes. Tracking "
         "may be delayed or inaccurate. This app clears its own saved coordinates; Telegram keeps "
         "its copy of the location message in your chat.\n\n"
-        "After you agree, open Telegram's attachment menu, choose Location, then Share Live Location. "
-        "A one-time location pin is not tracked."
+        "After you press Agree and share, you must share your location yourself. Telegram does not "
+        "let this bot start it. In this private chat, tap the attachment icon, choose Location, then "
+        "Share Live Location. A one-time location pin is not tracked."
     )
 
 
@@ -168,7 +171,8 @@ def _handle_start(update_id: int, message: dict, user: dict, chat: dict, text: s
     if participant.consented_at is not None and not participant.withdrawn:
         _send(
             chat_id,
-            "You are already sharing for this event. Send Live Location when ready. Use /stop to leave.",
+            "You are already sharing for this event. In this private chat, tap the attachment icon, "
+            "choose Location, then Share Live Location. Use /stop to leave.",
         )
         return
     _send_consent(participant)

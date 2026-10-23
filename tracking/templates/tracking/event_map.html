@@ -95,6 +95,7 @@
                 <p class="help">Existing group members can use this too. Runners must agree and share Live Location in the private bot chat.</p>
               </div>
             {% endif %}
+            {% include "tracking/_live_location_guide.html" %}
             <div class="share-block">
               <label for="runner-join-link">Runner sign-up page</label>
               <input id="runner-join-link" class="mono" type="text" value="{{ join_url }}" readonly>

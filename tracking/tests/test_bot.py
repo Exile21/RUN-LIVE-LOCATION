@@ -117,7 +117,17 @@ class OnboardingTests(BotTestCase):
         self.assertTrue(participant.pending_nonce)
         self.assertIn("Joining Test event as Alex", self.sent[-1][1]["text"])
         self.assertIn("anyone with this event's link", self.sent[-1][1]["text"])
+        self.assertIn("Telegram does not let this bot start it", self.sent[-1][1]["text"])
+        self.assertIn("Share Live Location", self.sent[-1][1]["text"])
         self.assertIn("callback_data", self.sent[-1][1]["reply_markup"]["inline_keyboard"][0][0])
+
+    def test_plain_start_explains_how_to_share_live_location(self):
+        event = self.event()
+        update = self.start_message(event)
+        update["message"]["text"] = "/start"
+        bot.handle_update(update, now=NOW)
+        self.assertIn("Share Live Location", self.sent[-1][1]["text"])
+        self.assertIn("attachment icon", self.sent[-1][1]["text"])
 
     def test_retried_start_resends_pending_consent(self):
         event = self.event()
