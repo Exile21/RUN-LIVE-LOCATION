@@ -21,8 +21,18 @@
     participants: document.getElementById("summary-participants"),
     live: document.getElementById("summary-live"),
     stale: document.getElementById("summary-stale"),
+    liveTile: document.getElementById("summary-live-tile"),
+    staleTile: document.getElementById("summary-stale-tile"),
   };
+  const liveChip = document.getElementById("map-live-chip");
+  const liveChipCount = document.getElementById("map-live-count");
+  const runnerBadge = document.getElementById("runner-badge");
   const mapWarning = document.getElementById("map-warning");
+
+  // ui.js is deferred, so resolve it lazily rather than at parse time.
+  function ui() {
+    return window.RunlineUI || {};
+  }
   const STATUS_LABELS = {
     live: "Live",
     stale: "Stale",
@@ -53,7 +63,12 @@
     if (!value) return "—";
     const date = new Date(value);
     if (Number.isNaN(date.getTime())) return "—";
-    return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+    return date.toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: false,
+    });
   }
 
   function setConnection(text, state) {
@@ -111,6 +126,10 @@
     return typeof runner.latitude === "number" && typeof runner.longitude === "number";
   }
 
+  function isNarrow() {
+    return window.matchMedia("(max-width: 899px)").matches;
+  }
+
   function selectRunner(id, focusList) {
     selectedId = id;
     rows.forEach(function (row, rowId) {
@@ -120,7 +139,6 @@
     });
     markers.forEach(function (entry, markerId) {
       entry.marker.setZIndexOffset(markerId === id ? 1000 : 0);
-      if (markerId === id) entry.marker.openPopup();
     });
     if (renameForm && id) {
       const runner = (snapshot.runners || []).find(function (item) { return item.id === id; });
@@ -136,6 +154,18 @@
       renameForm.hidden = true;
     }
     if (focusList && rows.has(id)) rows.get(id).button.focus();
+
+    function openPopup() {
+      const entry = markers.get(id);
+      if (entry) entry.marker.openPopup();
+    }
+
+    if (isNarrow() && ui().setTab) {
+      ui().setTab("map");
+      window.setTimeout(openPopup, 80);
+      return;
+    }
+    openPopup();
   }
 
   function createRow(runner) {
@@ -290,6 +320,7 @@
   function renderList(now) {
     const runners = snapshot.runners || [];
     const activeIds = new Set();
+    const fresh = [];
     runners.forEach(function (runner) {
       activeIds.add(runner.id);
       const status = effectiveStatus(runner, now);
@@ -297,6 +328,7 @@
       if (!row) {
         row = createRow(runner);
         rows.set(runner.id, row);
+        fresh.push(row.element);
       }
       updateRow(row, runner, status);
       listElement.appendChild(row.element);
@@ -312,6 +344,7 @@
       if (renameForm) renameForm.hidden = true;
     }
     applyFilter();
+    if (fresh.length && ui().reveal) ui().reveal(fresh);
   }
 
   function renderSummary(now) {
@@ -326,6 +359,25 @@
     summary.participants.textContent = String(runners.length);
     summary.live.textContent = String(live);
     summary.stale.textContent = String(stale);
+    if (summary.liveTile) summary.liveTile.dataset.tone = live ? "live" : "";
+    if (summary.staleTile) summary.staleTile.dataset.tone = stale ? "stale" : "";
+    if (liveChipCount) liveChipCount.textContent = String(live);
+    if (liveChip) {
+      const closed = Boolean(snapshot.event && snapshot.event.status === "closed");
+      liveChip.hidden = runners.length === 0 || closed;
+      liveChip.dataset.state = closed
+        ? "ended"
+        : connectionState === "offline"
+          ? "offline"
+          : live > 0
+            ? "live"
+            : "stale";
+    }
+    if (runnerBadge) {
+      runnerBadge.textContent = String(runners.length);
+      runnerBadge.hidden = runners.length === 0;
+    }
+    if (live > 0 && ui().flash) ui().flash(summary.live);
   }
 
   function render() {
@@ -417,6 +469,10 @@
 
   function init() {
     if (searchElement) searchElement.addEventListener("input", applyFilter);
+    document.addEventListener("runline:tab", function (event) {
+      if (!map || !event.detail || event.detail.tab !== "map") return;
+      window.requestAnimationFrame(function () { map.invalidateSize(); });
+    });
     if (!window.L) {
       setConnection("Map library failed to load. The runner list is still available.", "offline");
       render();

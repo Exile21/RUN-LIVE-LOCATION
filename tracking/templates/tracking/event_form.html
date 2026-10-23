@@ -2,8 +2,12 @@
 {% block title %}{% if event %}Edit {{ event.name }}{% else %}New event{% endif %} · Runline{% endblock %}
 {% block content %}
 <section class="page page--narrow">
-  <p class="eyebrow">{% if event %}Event settings{% else %}New event{% endif %}</p>
-  <h1>{% if event %}Edit event{% else %}Set up an event{% endif %}</h1>
+  <div class="page-heading">
+    <div>
+      <p class="eyebrow">{% if event %}Event settings{% else %}New event{% endif %}</p>
+      <h1>{% if event %}Edit event{% else %}Set up an event{% endif %}</h1>
+    </div>
+  </div>
 
   <form method="post" enctype="multipart/form-data" class="form-card">
     {% csrf_token %}

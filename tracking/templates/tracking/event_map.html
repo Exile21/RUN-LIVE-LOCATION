@@ -7,118 +7,175 @@
 {% endblock %}
 {% block body_class %}map-page{% endblock %}
 {% block content %}
-<section class="map-shell" data-mode="{% if is_staff_view %}staff{% else %}spectator{% endif %}">
-  <aside class="map-panel" aria-label="Event information">
-    <div class="map-panel__head">
-      <p class="eyebrow">{% if is_staff_view %}Race control{% else %}Spectator view{% endif %}</p>
-      <h1>{{ event.name }}</h1>
-      <p class="event-status">
-        <span class="status status--{{ event.status }}">{{ event.get_status_display }}</span>
-        {% if event.status == "open" %}<span class="muted">Live map</span>{% endif %}
-      </p>
-      <dl class="event-schedule">
-        <div>
-          <dt>Starts</dt>
-          <dd>{% if event.schedule_starts_at %}{{ event.schedule_starts_at|date:"D j M Y, H:i T" }}{% else %}Not scheduled{% endif %}</dd>
-        </div>
-        <div>
-          <dt>Ends</dt>
-          <dd>{% if event.schedule_ends_at %}{{ event.schedule_ends_at|date:"D j M Y, H:i T" }}{% else %}Not scheduled{% endif %}</dd>
-        </div>
-      </dl>
-      {% if event.status == "closed" %}
-        <p class="panel-note" role="status">Event closed. No runner positions are shown.</p>
-      {% endif %}
-    </div>
+<section class="map-shell" data-tab="map" data-mode="{% if is_staff_view %}staff{% else %}spectator{% endif %}">
+  <div class="map-panel">
+    <div class="panel-inner">
 
-    {% if is_staff_view %}
-      <div class="control-block">
-        <div class="control-actions">
-          {% if event.status != "closed" %}
-            <a class="button button--ghost button--small" href="{% url 'event_edit' pk=event.pk %}">Edit event</a>
-          {% endif %}
-          {% if event.status == "draft" %}
-            <form method="post" action="{% url 'event_open' pk=event.pk %}" class="inline-form">
-              {% csrf_token %}
-              <button class="button button--primary button--small" type="submit">Open event</button>
-            </form>
-          {% elif event.status == "open" %}
-            <form method="post" action="{% url 'event_close' pk=event.pk %}" class="inline-form" onsubmit="return confirm('Close the event and clear all saved runner positions? This cannot be undone.');">
-              {% csrf_token %}
-              <button class="button button--danger button--small" type="submit">Close event</button>
-            </form>
-          {% endif %}
-        </div>
+      <section class="panel-section" data-section="info" id="panel-info" role="tabpanel" aria-labelledby="tab-info">
+        <header>
+          <p class="eyebrow">{% if is_staff_view %}Race control{% else %}Spectator view{% endif %}</p>
+          <h1 class="event-title">{{ event.name }}</h1>
+          <p class="event-status">
+            <span class="status status--{{ event.status }}">{{ event.get_status_display }}</span>
+            {% if event.status == "open" %}<span class="muted">Live map</span>{% endif %}
+          </p>
+        </header>
 
-        {% if event.status == "open" %}
-          <div class="share-block">
-            <label for="spectator-link">Spectator link</label>
-            <input id="spectator-link" class="mono" type="text" value="{{ spectator_url }}" readonly>
-            <div class="control-actions">
-              <a class="text-link" href="{{ spectator_url }}" target="_blank" rel="noopener">Open public map</a>
-              <form method="post" action="{% url 'event_rotate_link' pk=event.pk %}" class="inline-form" onsubmit="return confirm('Rotate the spectator link? Every old link will stop working.');">
-                {% csrf_token %}
-                <button class="link-button" type="submit">Rotate link</button>
-              </form>
-            </div>
+        <dl class="event-schedule">
+          <div>
+            <dt>Starts</dt>
+            <dd>
+              {% if event.schedule_starts_at %}
+                <time datetime="{{ event.schedule_starts_at|date:'c' }}">
+                  <span class="schedule-date">{{ event.schedule_starts_at|date:"D j M Y" }}</span>
+                  <span class="schedule-time">{{ event.schedule_starts_at|date:"H:i T" }}</span>
+                </time>
+              {% else %}
+                <span class="schedule-empty">Not scheduled</span>
+              {% endif %}
+            </dd>
           </div>
-          {% if enrollment_url %}
-            <div class="share-block">
-              <label for="runner-link">Runner onboarding link</label>
-              <input id="runner-link" class="mono" type="text" value="{{ enrollment_url }}" readonly>
-              <p class="help">Existing group members can use this too. Runners must agree and share Live Location in the private bot chat.</p>
-            </div>
-          {% endif %}
+          <div>
+            <dt>Ends</dt>
+            <dd>
+              {% if event.schedule_ends_at %}
+                <time datetime="{{ event.schedule_ends_at|date:'c' }}">
+                  <span class="schedule-date">{{ event.schedule_ends_at|date:"D j M Y" }}</span>
+                  <span class="schedule-time">{{ event.schedule_ends_at|date:"H:i T" }}</span>
+                </time>
+              {% else %}
+                <span class="schedule-empty">Not scheduled</span>
+              {% endif %}
+            </dd>
+          </div>
+        </dl>
+
+        {% if event.status == "closed" %}
+          <p class="panel-note" role="status">Event closed. No runner positions are shown.</p>
         {% endif %}
-      </div>
-    {% else %}
-      <p class="panel-note">This read-only map is available to anyone with the link. Locations may be delayed. Share Live Location is controlled by each runner.</p>
-    {% endif %}
 
-    <div class="summary" aria-label="Runner summary">
-      <div><span class="summary__value" id="summary-participants">{{ snapshot.summary.participants }}</span><span class="summary__label">Runners</span></div>
-      <div><span class="summary__value" id="summary-live">{{ snapshot.summary.live }}</span><span class="summary__label">Live</span></div>
-      <div><span class="summary__value" id="summary-stale">{{ snapshot.summary.stale }}</span><span class="summary__label">Stale</span></div>
-    </div>
+        {% if is_staff_view %}
+          <div class="control-actions">
+            {% if event.status != "closed" %}
+              <a class="button button--ghost button--small" href="{% url 'event_edit' pk=event.pk %}">Edit event</a>
+            {% endif %}
+            {% if event.status == "draft" %}
+              <form method="post" action="{% url 'event_open' pk=event.pk %}" class="inline-form">
+                {% csrf_token %}
+                <button class="button button--primary button--small" type="submit">Open event</button>
+              </form>
+            {% elif event.status == "open" %}
+              <form method="post" action="{% url 'event_close' pk=event.pk %}" class="inline-form" onsubmit="return confirm('Close the event and clear all saved runner positions? This cannot be undone.');">
+                {% csrf_token %}
+                <button class="button button--danger button--small" type="submit">Close event</button>
+              </form>
+            {% endif %}
+          </div>
 
-    <div class="connection" id="connection" role="status" aria-live="polite">
-      <span class="dot" aria-hidden="true"></span>
-      <span id="connection-text">Loading map…</span>
-    </div>
-    <p class="refresh-line muted">Last successful refresh: <time id="last-refresh">—</time></p>
-    <p class="panel-note panel-note--small">GPS and Telegram delivery can lag or stop. This is not an emergency or official timing system.</p>
+          {% if event.status == "open" %}
+            <div class="share-block">
+              <label for="spectator-link">Spectator link</label>
+              <input id="spectator-link" class="mono" type="text" value="{{ spectator_url }}" readonly>
+              <div class="control-actions">
+                <a class="text-link" href="{{ spectator_url }}" target="_blank" rel="noopener">Open public map</a>
+                <form method="post" action="{% url 'event_rotate_link' pk=event.pk %}" class="inline-form" onsubmit="return confirm('Rotate the spectator link? Every old link will stop working.');">
+                  {% csrf_token %}
+                  <button class="link-button" type="submit">Rotate link</button>
+                </form>
+              </div>
+            </div>
+            {% if enrollment_url %}
+              <div class="share-block">
+                <label for="runner-link">Runner onboarding link</label>
+                <input id="runner-link" class="mono" type="text" value="{{ enrollment_url }}" readonly>
+                <p class="help">Existing group members can use this too. Runners must agree and share Live Location in the private bot chat.</p>
+              </div>
+            {% endif %}
+          {% endif %}
+        {% else %}
+          <p class="panel-note">This read-only map is available to anyone with the link. Locations may be delayed. Share Live Location is controlled by each runner.</p>
+        {% endif %}
+      </section>
 
-    <div class="runner-tools">
-      <label for="runner-search">Find a runner</label>
-      <input id="runner-search" type="search" placeholder="Search by display name" autocomplete="off">
-      <button type="button" class="button button--ghost button--small" id="fit-route">Fit route</button>
-    </div>
-
-    <ul class="runner-list" id="runner-list" aria-label="Runners"></ul>
-    <p class="empty-list" id="runner-empty"{% if snapshot.runners %} hidden{% endif %}>No runners on the map yet.</p>
-
-    {% if is_staff_view %}
-      <form method="post" id="rename-form" class="rename-form" hidden>
-        {% csrf_token %}
-        <label for="rename-input">Display name</label>
-        <div class="rename-row">
-          <input id="rename-input" name="display_name" type="text" maxlength="160" required>
-          <button class="button button--ghost button--small" type="submit">Save</button>
+      <section class="panel-section" data-section="runners" id="panel-runners" role="tabpanel" aria-labelledby="tab-runners">
+        <div class="section-head">
+          <h2>Runners</h2>
+          <p class="muted" style="font-size:12px">Updated every 5s</p>
         </div>
-        <p class="help">Visible to everyone with the spectator link.</p>
-      </form>
-    {% endif %}
-  </aside>
 
-  <div class="map-wrap">
+        <div class="summary" aria-label="Runner summary">
+          <div><span class="summary__value" id="summary-participants">{{ snapshot.summary.participants }}</span><span class="summary__label">Runners</span></div>
+          <div id="summary-live-tile"><span class="summary__value" id="summary-live">{{ snapshot.summary.live }}</span><span class="summary__label">Live</span></div>
+          <div id="summary-stale-tile"><span class="summary__value" id="summary-stale">{{ snapshot.summary.stale }}</span><span class="summary__label">Stale</span></div>
+        </div>
+
+        <div class="connection" id="connection" role="status" aria-live="polite">
+          <span class="dot" aria-hidden="true"></span>
+          <span id="connection-text">Loading map…</span>
+        </div>
+        <p class="refresh-line">Last successful refresh: <time id="last-refresh">—</time></p>
+        <p class="panel-note">GPS and Telegram delivery can lag or stop. This is not an emergency or official timing system.</p>
+
+        <div class="runner-tools">
+          <label for="runner-search">Find a runner</label>
+          <input id="runner-search" type="search" placeholder="Search by display name" autocomplete="off">
+        </div>
+
+        <ul class="runner-list" id="runner-list" aria-label="Runners"></ul>
+        <p class="empty-list" id="runner-empty"{% if snapshot.runners %} hidden{% endif %}>No runners on the map yet.</p>
+
+        {% if is_staff_view %}
+          <form method="post" id="rename-form" class="rename-form" hidden>
+            {% csrf_token %}
+            <label for="rename-input">Display name</label>
+            <div class="rename-row">
+              <input id="rename-input" name="display_name" type="text" maxlength="160" required>
+              <button class="button button--ghost button--small" type="submit">Save</button>
+            </div>
+            <p class="help">Visible to everyone with the spectator link.</p>
+          </form>
+        {% endif %}
+      </section>
+
+    </div>
+  </div>
+
+  <div class="map-wrap" id="map-stage" role="tabpanel" aria-labelledby="tab-map">
     <div id="map" aria-label="Event route and runner positions" data-snapshot-url="{{ snapshot_url }}" data-mode="{% if is_staff_view %}staff{% else %}spectator{% endif %}"{% if is_staff_view %} data-rename-template="{% url 'participant_rename' pk=event.pk public_id='00000000-0000-0000-0000-000000000000' %}"{% endif %}></div>
+    <div class="map-overlay">
+      <button type="button" class="map-chip" id="map-live-chip" data-tab-target="runners" hidden>
+        <span class="dot" aria-hidden="true"></span>
+        <span class="map-chip__count" id="map-live-count">0</span>
+        <span>live</span>
+      </button>
+      <button type="button" class="map-chip" id="fit-route">Fit route</button>
+    </div>
     <div class="map-warning" id="map-warning" hidden>Map tiles are unavailable. The runner list remains usable.</div>
     <noscript><p class="map-noscript">Enable JavaScript to view runner positions. Organizers can still manage events.</p></noscript>
   </div>
+
+  <nav class="tabbar" role="tablist" aria-label="Control room sections">
+    <span class="tabbar__indicator" aria-hidden="true"></span>
+    <button type="button" class="tabbar__item" role="tab" id="tab-map" data-tab="map" aria-selected="true" aria-controls="map-stage">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4 3 6.5v13L9 17l6 3 6-2.5v-13L15 7 9 4Z"/><path d="M9 4v13"/><path d="M15 7v13"/></svg>
+      <span>Map</span>
+    </button>
+    <button type="button" class="tabbar__item" role="tab" id="tab-runners" data-tab="runners" aria-selected="false" aria-controls="panel-runners">
+      <span class="tabbar__icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9.5" cy="8" r="3.2"/><path d="M4 20a5.5 5.5 0 0 1 11 0"/><path d="M16.2 5.4a3.2 3.2 0 0 1 0 5.2"/><path d="M17.6 14.6A5.5 5.5 0 0 1 21 20"/></svg>
+        <span class="tabbar__badge" id="runner-badge" hidden>0</span>
+      </span>
+      <span>Runners</span>
+    </button>
+    <button type="button" class="tabbar__item" role="tab" id="tab-info" data-tab="info" aria-selected="false" aria-controls="panel-info">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 11.2V16"/><path d="M12 7.8v.4"/></svg>
+      <span>Info</span>
+    </button>
+  </nav>
 </section>
 {{ snapshot|json_script:"initial-snapshot" }}
 {% endblock %}
 {% block scripts %}
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-  <script src="{% static 'tracking/map.js' %}"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin="" defer></script>
+  <script src="{% static 'tracking/map.js' %}?v=20261022h" defer></script>
 {% endblock %}

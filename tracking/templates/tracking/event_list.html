@@ -15,13 +15,13 @@
       <div>
         <p class="eyebrow">Next scheduled event</p>
         <h2>{{ upcoming.name }}</h2>
+        <p class="upcoming__schedule">
+          {{ upcoming.schedule_starts_at|date:"D j M Y, H:i T" }}
+          <span aria-hidden="true">→</span>
+          {{ upcoming.schedule_ends_at|date:"D j M Y, H:i T" }}
+        </p>
       </div>
-      <p class="upcoming__schedule">
-        {{ upcoming.schedule_starts_at|date:"D j M Y, H:i T" }}
-        <span aria-hidden="true">→</span>
-        {{ upcoming.schedule_ends_at|date:"D j M Y, H:i T" }}
-      </p>
-      <a class="text-link" href="{% url 'event_detail' pk=upcoming.pk %}">Open event setup</a>
+      <a class="card-link" href="{% url 'event_detail' pk=upcoming.pk %}">Open event setup <span aria-hidden="true">→</span></a>
     </article>
   {% endif %}
 
@@ -50,7 +50,7 @@
             <div><dt>Route</dt><dd>{{ event.route_segments|length }} segment{{ event.route_segments|length|pluralize }}</dd></div>
             <div><dt>Created</dt><dd>{{ event.created_at|date:"j M Y, H:i T" }}</dd></div>
           </dl>
-          <a class="text-link" href="{% url 'event_detail' pk=event.pk %}">Open control room</a>
+          <a class="card-link" href="{% url 'event_detail' pk=event.pk %}">Open control room <span aria-hidden="true">→</span></a>
         </article>
       {% endfor %}
     </div>
