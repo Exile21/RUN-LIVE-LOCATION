@@ -179,8 +179,12 @@ def _participation_item(participant: Participant, *, now) -> dict:
         "event": event,
         "event_name": event.name,
         "event_status": event.status,
-        "status_key": event.display_status_key,
-        "status_label": event.display_status,
+        "status_key": "closed"
+        if ended and event.status == Event.Status.DRAFT
+        else event.display_status_key,
+        "status_label": "Ended"
+        if ended and event.status == Event.Status.DRAFT
+        else event.display_status,
         "schedule_label": schedule_label,
         "time_label": time_label,
         "time_value": time_value,
@@ -194,6 +198,7 @@ def _participation_item(participant: Participant, *, now) -> dict:
         "can_leave": not active,
         "is_past": ended,
         "map_url": reverse("spectator_detail", args=[event.spectator_token]),
+        "route_preview_path": route_preview_path(event.route_segments),
         "track_url": reverse("runner_track", args=[participant.public_id])
         if ended and getattr(participant, "track_count", 0)
         else "",

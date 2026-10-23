@@ -246,28 +246,44 @@ code, .mono { font-family: var(--font-outlier); font-size: 0.9em; }
 
 .page--dashboard { max-width: 960px; }
 .dashboard-section { display: grid; gap: var(--space-sm); margin-top: var(--space-xl); }
-.event-carousel > .event-participation { scroll-snap-align: start; }
-.event-participation {
-  display: grid; gap: var(--space-md); min-width: 0;
-  padding: var(--space-md); border: var(--rule-hair) solid var(--color-rule);
-  border-radius: 16px; background: var(--color-surface); box-shadow: var(--shadow-card);
+
+/* Runner cards reuse the events cover carousel and overlay the participation details. */
+.event-card--runner .event-card__cover { height: min(126vw, 600px); }
+.event-card--runner .event-card__cover::after {
+  background: linear-gradient(
+    to top,
+    color-mix(in oklab, var(--color-graphite) 95%, transparent) 0%,
+    color-mix(in oklab, var(--color-graphite) 70%, transparent) 48%,
+    transparent 86%
+  );
 }
-.event-participation.is-past { background: var(--color-paper-2); box-shadow: none; }
-.event-participation__head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-sm); }
-.event-participation__head h3 { margin-top: var(--space-xs); font-size: var(--text-section); line-height: 1.25; }
-.event-participation__head p { margin-top: var(--space-3xs); font-size: var(--text-sm); }
-.event-participation__head .text-link { flex: none; }
-.event-participation__stats {
-  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-sm);
-  padding: var(--space-sm) 0;
-  border-top: var(--rule-hair) solid var(--color-rule);
-  border-bottom: var(--rule-hair) solid var(--color-rule);
+.event-card__caption--runner { display: grid; gap: var(--space-xs); }
+.event-card__caption--runner h3 { color: inherit; font-size: var(--text-lg); line-height: 1.25; }
+.event-card__schedule { font-size: var(--text-sm); }
+.event-card__stats {
+  display: flex; gap: var(--space-lg); padding-top: var(--space-xs);
+  border-top: 1px solid color-mix(in oklab, var(--color-graphite-ink) 20%, transparent);
 }
-.event-participation__stats > div { display: grid; gap: var(--space-3xs); }
+.event-card__stats > div { display: grid; gap: 2px; }
+.event-card__stats .stat-value { color: var(--color-graphite-ink); font-size: var(--text-lg); }
+.event-card__stats .stat-label { color: var(--color-graphite-muted); }
+.event-card__actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-xs) var(--space-md); }
+.event-card__actions form { margin: 0; }
+.overlay-link {
+  min-height: 32px; padding: 0; border: 0; background: none; cursor: pointer;
+  color: var(--color-graphite-ink); font-size: var(--text-sm); font-weight: 600;
+  text-decoration: underline; text-underline-offset: 3px; pointer-events: auto;
+}
+.overlay-note { color: var(--color-graphite-muted); font-size: var(--text-xs); }
+@media (min-width: 640px) {
+  .event-card--runner .event-card__cover { height: 460px; }
+}
+@media (min-width: 900px) {
+  .event-card--runner .event-card__cover { height: 420px; }
+}
+
 .stat-value { font-size: var(--text-xl); font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1.1; }
 .stat-label { color: var(--color-muted); font-size: var(--text-xs); }
-.event-participation__actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-sm); }
-.event-participation__actions form { margin: 0; }
 
 .join-route { max-width: 320px; height: auto; margin: 0 auto var(--space-lg); color: var(--color-route); }
 .join-note {

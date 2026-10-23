@@ -221,6 +221,22 @@ class RunnerAccountTests(TestCase):
         self.assertContains(response, self.event.name)
         self.assertContains(response, "Final duration")
 
+    def test_unopened_draft_whose_window_passed_shows_ended(self):
+        self.event.status = Event.Status.DRAFT
+        self.event.schedule_starts_at = timezone.now() - timedelta(hours=2)
+        self.event.schedule_ends_at = timezone.now() - timedelta(hours=1)
+        self.event.save(
+            update_fields=["status", "schedule_starts_at", "schedule_ends_at"]
+        )
+        Participant.objects.create(
+            event=self.event, user=self.runner, display_name="Runner"
+        )
+        self.client.force_login(self.runner)
+        response = self.client.get(reverse("runner_dashboard"))
+        self.assertContains(response, "Past events")
+        self.assertContains(response, ">Ended<")
+        self.assertNotContains(response, "Registration open")
+
     def test_leave_removes_a_registration_but_not_active_tracking(self):
         participant = Participant.objects.create(
             event=self.event,
