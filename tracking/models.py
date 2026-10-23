@@ -39,6 +39,27 @@ class Event(models.Model):
     def __str__(self):
         return self.name
 
+    @property
+    def has_registrations(self) -> bool:
+        if not hasattr(self, "_has_registrations"):
+            count = getattr(self, "participant_count", None)
+            self._has_registrations = (
+                self.participants.exists() if count is None else count > 0
+            )
+        return self._has_registrations
+
+    @property
+    def display_status(self) -> str:
+        if self.status == self.Status.DRAFT and self.has_registrations:
+            return "Registration open"
+        return self.get_status_display()
+
+    @property
+    def display_status_key(self) -> str:
+        if self.status == self.Status.DRAFT and self.has_registrations:
+            return "registration"
+        return self.status
+
 
 class TelegramConfig(models.Model):
     group_id = models.BigIntegerField(

@@ -19,6 +19,7 @@
       <div class="event-filters" role="group" aria-label="Filter events by status">
         <button type="button" class="filter-chip is-active" data-event-status="" aria-pressed="true">All</button>
         <button type="button" class="filter-chip" data-event-status="open" aria-pressed="false">Open</button>
+        <button type="button" class="filter-chip" data-event-status="registration" aria-pressed="false">Registration</button>
         <button type="button" class="filter-chip" data-event-status="draft" aria-pressed="false">Draft</button>
         <button type="button" class="filter-chip" data-event-status="closed" aria-pressed="false">Closed</button>
       </div>
@@ -26,12 +27,12 @@
 
     <ul class="event-carousel" tabindex="0" aria-label="Events" aria-roledescription="carousel">
       {% for event in events %}
-        <li class="event-card" data-name="{{ event.name|lower }}" data-status="{{ event.status }}">
+        <li class="event-card" data-name="{{ event.name|lower }}" data-status="{{ event.display_status_key }}">
           <div class="event-card__cover">
             <a class="event-card__link" href="{% url 'event_detail' pk=event.pk %}">
               <span class="visually-hidden">Open control room for {{ event.name }}</span>
             </a>
-            <span class="status status--{{ event.status }}">{{ event.get_status_display }}</span>
+            <span class="status status--{{ event.display_status_key }}">{{ event.display_status }}</span>
             <span class="event-card__date" aria-hidden="true">
               {% if event.schedule_starts_at %}
                 <strong>{{ event.schedule_starts_at|date:"j" }}</strong>

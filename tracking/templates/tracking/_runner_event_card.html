@@ -1,7 +1,7 @@
 <article class="event-participation{% if item.is_past %} is-past{% endif %}">
   <header class="event-participation__head">
     <div>
-      <span class="status status--{{ item.event_status }}">{{ item.status_label }}</span>
+      <span class="status status--{{ item.status_key }}">{{ item.status_label }}</span>
       <h3>{{ item.event_name }}</h3>
       <p class="muted">{{ item.schedule_label }}</p>
     </div>

@@ -179,7 +179,8 @@ def _participation_item(participant: Participant, *, now) -> dict:
         "event": event,
         "event_name": event.name,
         "event_status": event.status,
-        "status_label": event.get_status_display(),
+        "status_key": event.display_status_key,
+        "status_label": event.display_status,
         "schedule_label": schedule_label,
         "time_label": time_label,
         "time_value": time_value,
@@ -366,7 +367,10 @@ def runner_track(request, public_id):
 @never_cache
 @staff_page
 def event_list(request):
-    events = Event.objects.all().order_by("-created_at")
+    events = (
+        Event.objects.annotate(participant_count=Count("participants"))
+        .order_by("-created_at")
+    )
     for event in events:
         event.route_preview_path = route_preview_path(event.route_segments)
     return _private_page(

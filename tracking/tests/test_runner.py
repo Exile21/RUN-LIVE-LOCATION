@@ -108,6 +108,11 @@ class RunnerAccountTests(TestCase):
         )
         self.assertTrue(JoinEventForm({"code": draft.enrollment_token}).is_valid())
 
+        self.client.force_login(self.staff)
+        self.assertContains(
+            self.client.get(reverse("event_detail", args=[draft.pk])), ">Draft<"
+        )
+
         self.client.force_login(self.runner)
         join_url = reverse("join_event", args=[draft.enrollment_token])
         self.assertEqual(self.client.get(join_url).status_code, 200)
@@ -116,10 +121,18 @@ class RunnerAccountTests(TestCase):
 
         dashboard = self.client.get(reverse("runner_dashboard"))
         self.assertContains(dashboard, "Upcoming")
+        self.assertContains(dashboard, "Registration open")
         self.assertContains(dashboard, "Telegram opens when the event starts")
         self.assertNotIn("start=p_", dashboard.content.decode())
 
         self.client.force_login(self.staff)
+        self.assertContains(
+            self.client.get(reverse("event_detail", args=[draft.pk])), "Registration open"
+        )
+        listing = self.client.get(reverse("event_list"))
+        self.assertContains(listing, "Registration open")
+        self.assertContains(listing, 'data-event-status="registration"')
+        self.assertContains(listing, 'data-status="registration"')
         with patch("tracking.views.telegram.telegram_call") as send:
             response = self.client.post(
                 reverse("event_share_telegram", args=[draft.pk]), follow=True

@@ -139,6 +139,7 @@ code, .mono { font-family: var(--font-outlier); font-size: 0.9em; }
 .status--open { background: var(--color-live-wash); color: var(--color-success); }
 .status--closed { background: var(--color-error-wash); color: var(--color-error); }
 .status--draft { background: var(--color-paper-2); color: var(--color-ink-2); }
+.status--registration { background: var(--color-accent-wash); color: var(--color-accent-2); }
 
 /* ------------------------------------------------------------- event list --- */
 

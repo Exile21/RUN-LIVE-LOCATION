@@ -15,7 +15,7 @@
       <p class="view-label">{% if is_staff_view %}Race control{% else %}Spectator view{% endif %}</p>
     </div>
     <p class="event-status">
-      <span class="status status--{{ event.status }}">{{ event.get_status_display }}</span>
+      <span class="status status--{{ event.display_status_key }}">{{ event.display_status }}</span>
       {% if event.status == "open" %}<span class="muted">Live map</span>{% endif %}
     </p>
   </header>
@@ -108,7 +108,7 @@
               <input id="runner-join-link" class="mono" type="text" value="{{ join_url }}" readonly>
               <p class="help">Runners create an account, join here, then connect Telegram to share Live Location.</p>
               {% if event.status == "draft" %}
-                <p class="help">This event is still a draft. Runners can register now and connect Telegram when it opens.</p>
+                <p class="help">This event has not opened yet. Runners can register now and connect Telegram when it opens.</p>
               {% endif %}
               <div class="control-actions">
                 <form method="post" action="{% url 'event_share_telegram' pk=event.pk %}">
