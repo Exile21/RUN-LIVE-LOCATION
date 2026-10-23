@@ -44,6 +44,9 @@ class RunnerAccountTests(TestCase):
         response = self.client.get(reverse("runner_dashboard"))
         self.assertEqual(response.status_code, 302)
         self.assertIn(reverse("login"), response["Location"])
+        response = self.client.get(reverse("runner_history"))
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(reverse("login"), response["Location"])
 
     def test_anonymous_join_goes_to_signup_then_back_to_the_event(self):
         join_url = reverse("join_event", args=[self.event.enrollment_token])
@@ -203,7 +206,7 @@ class RunnerAccountTests(TestCase):
                 self.assertTrue(form.is_valid(), form.errors)
                 self.assertEqual(form.cleaned_data["code"], self.event.enrollment_token)
 
-    def test_closed_event_appears_in_past_events(self):
+    def test_closed_event_appears_in_history(self):
         Participant.objects.create(
             event=self.event,
             user=self.runner,
@@ -216,10 +219,11 @@ class RunnerAccountTests(TestCase):
         self.event.schedule_ends_at = timezone.now() - timedelta(hours=1)
         self.event.save(update_fields=["status", "schedule_starts_at", "schedule_ends_at"])
         self.client.force_login(self.runner)
-        response = self.client.get(reverse("runner_dashboard"))
+        response = self.client.get(reverse("runner_history"))
         self.assertContains(response, "Past events")
         self.assertContains(response, self.event.name)
         self.assertContains(response, "Final duration")
+        self.assertNotContains(self.client.get(reverse("runner_dashboard")), "Past events")
 
     def test_unopened_draft_whose_window_passed_shows_ended(self):
         self.event.status = Event.Status.DRAFT
@@ -232,7 +236,7 @@ class RunnerAccountTests(TestCase):
             event=self.event, user=self.runner, display_name="Runner"
         )
         self.client.force_login(self.runner)
-        response = self.client.get(reverse("runner_dashboard"))
+        response = self.client.get(reverse("runner_history"))
         self.assertContains(response, "Past events")
         self.assertContains(response, ">Ended<")
         self.assertNotContains(response, "Registration open")

@@ -32,6 +32,10 @@
   const liveChipLabel = document.getElementById("map-live-label");
   const runnerBadge = document.getElementById("runner-badge");
   const mapWarning = document.getElementById("map-warning");
+  const routeStats = document.getElementById("route-stats");
+  const routeDistance = document.getElementById("route-distance");
+  const routeClimbTile = document.getElementById("route-climb-tile");
+  const routeClimb = document.getElementById("route-climb");
 
   // ui.js is deferred, so resolve it lazily rather than at parse time.
   function ui() {
@@ -50,7 +54,7 @@
 
   let snapshot = JSON.parse(initialElement.textContent);
   let map = null;
-  let routeLayers = [];
+  let routeLayer = null;
   let routeSignature = "";
   let mapFitted = false;
   let tileLayer = null;
@@ -122,10 +126,20 @@
     return wrapper;
   }
 
+  function heading(runner) {
+    return typeof runner.heading === "number" && Number.isFinite(runner.heading)
+      ? runner.heading
+      : null;
+  }
+
   function markerIcon(runner, status) {
+    const direction = heading(runner);
+    const pointer = direction === null
+      ? ""
+      : '<span class="runner-marker__pointer" style="transform: rotate(' + direction + 'deg)"></span>';
     return L.divIcon({
       className: "runner-marker runner-marker--" + status,
-      html: "<span>" + runner.number + "</span>",
+      html: pointer + '<span class="runner-marker__number">' + runner.number + "</span>",
       iconSize: [44, 44],
       iconAnchor: [22, 22],
       popupAnchor: [0, -16],
@@ -283,28 +297,58 @@
   }
 
   function drawRoute(segments) {
-    routeLayers.forEach(function (layer) { map.removeLayer(layer); });
-    routeLayers = [];
+    if (routeLayer) map.removeLayer(routeLayer);
     const all = [];
     (segments || []).forEach(function (segment) {
-      const points = segment
-        .filter(function (point) { return Array.isArray(point) && point.length >= 2; })
-        .map(function (point) { return [point[0], point[1]]; });
-      if (points.length < 2) return;
-      all.push.apply(all, points);
-      routeLayers.push(L.polyline(points, {
+      segment.forEach(function (point) {
+        if (Array.isArray(point) && point.length >= 2) all.push([point[0], point[1]]);
+      });
+    });
+    if (window.RunlineRoute) {
+      routeLayer = window.RunlineRoute.draw(map, segments || [], {
         color: getComputedStyle(mapElement).getPropertyValue("--color-route").trim(),
         weight: 4,
         opacity: 0.72,
-        lineJoin: "round",
-        lineCap: "round",
-      }).addTo(map));
-    });
+        arrows: true,
+        endpoints: true,
+      });
+      updateRouteStats(window.RunlineRoute.stats(segments || []));
+    } else {
+      routeLayer = L.layerGroup();
+      (segments || []).forEach(function (segment) {
+        const points = segment.filter(function (point) {
+          return Array.isArray(point) && point.length >= 2;
+        });
+        if (points.length < 2) return;
+        L.polyline(points, {
+          color: getComputedStyle(mapElement).getPropertyValue("--color-route").trim(),
+          weight: 4,
+          opacity: 0.72,
+          lineJoin: "round",
+          lineCap: "round",
+        }).addTo(routeLayer);
+      });
+      routeLayer.addTo(map);
+    }
     if (all.length) {
       const bounds = L.latLngBounds(all);
       if (bounds.isValid()) map.fitBounds(bounds, { padding: [28, 28], maxZoom: 15 });
     }
     mapFitted = true;
+  }
+
+  function updateRouteStats(summary) {
+    if (!summary || !routeStats) return;
+    const hasRoute = summary.distance > 0;
+    routeStats.hidden = !hasRoute;
+    if (!hasRoute) return;
+    if (routeDistance) {
+      routeDistance.textContent = window.RunlineRoute.formatDistance(summary.distance);
+    }
+    if (routeClimbTile) routeClimbTile.hidden = !summary.hasElevation;
+    if (routeClimb && summary.hasElevation) {
+      routeClimb.textContent = window.RunlineRoute.formatGain(summary.gain);
+    }
   }
 
   function fitRoute() {
@@ -345,11 +389,15 @@
         }).addTo(map);
         marker.on("click", function () { selectRunner(runner.id, false); });
         marker.bindPopup(popup);
-        entry = { marker: marker, markerKey: runner.number + status, popupKey: runner.name + status };
+        entry = {
+          marker: marker,
+          markerKey: runner.number + status + heading(runner),
+          popupKey: runner.name + status,
+        };
         markers.set(runner.id, entry);
       } else {
         entry.marker.setLatLng(latlng);
-        const markerKey = runner.number + status;
+        const markerKey = runner.number + status + heading(runner);
         if (entry.markerKey !== markerKey) {
           entry.marker.setIcon(markerIcon(runner, status));
           entry.markerKey = markerKey;

@@ -6,7 +6,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import SimpleTestCase, TestCase
 
 from tracking.forms import EventForm
-from tracking.gpx import MAX_POINTS, parse_gpx, route_preview_path
+from tracking.gpx import MAX_POINTS, parse_gpx, route_preview_arrows, route_preview_path
 from tracking.models import Event, TelegramConfig
 from tracking.tests.helpers import make_event, make_telegram_config
 
@@ -29,6 +29,25 @@ class GpxTests(TestCase):
         segments = parse_gpx(FIXTURE.read_bytes())
         self.assertEqual([len(segment) for segment in segments], [2, 2])
         self.assertEqual([segment[0] for segment in segments], [[1.0, 2.0], [3.0, 4.0]])
+
+    def test_elevation_is_kept_when_present(self):
+        data = b"""<gpx xmlns="http://www.topografix.com/GPX/1/1">
+        <trk><trkseg>
+        <trkpt lat="1" lon="2"><ele>12.5</ele></trkpt>
+        <trkpt lat="1.1" lon="2.1"><ele>15</ele></trkpt>
+        </trkseg></trk></gpx>"""
+        self.assertEqual(parse_gpx(data), [[[1.0, 2.0, 12.5], [1.1, 2.1, 15.0]]])
+
+    def test_invalid_elevation_is_rejected(self):
+        for elevation in ("abc", "nan", "20000"):
+            with self.subTest(elevation=elevation):
+                data = f"""<gpx xmlns="http://www.topografix.com/GPX/1/1">
+                <trk><trkseg>
+                <trkpt lat="1" lon="2"><ele>{elevation}</ele></trkpt>
+                <trkpt lat="1.1" lon="2.1"></trkpt>
+                </trkseg></trk></gpx>""".encode()
+                with self.assertRaises(ValidationError):
+                    parse_gpx(data)
 
     def test_route_points_are_supported(self):
         data = b"""<gpx xmlns="http://www.topografix.com/GPX/1/1">
@@ -98,6 +117,27 @@ class RoutePreviewTests(SimpleTestCase):
         self.assertEqual(route_preview_path([[[1, 2], [1, 2]]]), "")
         self.assertEqual(route_preview_path([[[0, 0], [0, 2]]]), "M16.00,100.00 L304.00,100.00")
         self.assertEqual(route_preview_path([[[0, 1], [2, 1]]]), "M160.00,184.00 L160.00,16.00")
+
+    def test_preview_arrows_follow_the_route_direction(self):
+        east = route_preview_arrows([[[0, 0], [0, 2]]])
+        self.assertEqual(len(east), 2)
+        for arrow in east:
+            self.assertAlmostEqual(arrow["angle"], 90)
+            self.assertTrue(16 <= arrow["x"] <= 304)
+            self.assertAlmostEqual(arrow["y"], 100)
+
+        north = route_preview_arrows([[[0, 1], [2, 1]]])
+        self.assertEqual(len(north), 1)
+        self.assertAlmostEqual(north[0]["angle"], 0)
+
+        self.assertEqual(route_preview_arrows([]), [])
+        self.assertEqual(route_preview_arrows([[[1, 2], [1, 2]]]), [])
+
+    def test_preview_arrows_ignore_extra_elevation_values(self):
+        arrows = route_preview_arrows([[[0, 0, 10], [0, 2, 20]]])
+        self.assertEqual(len(arrows), 2)
+        for arrow in arrows:
+            self.assertAlmostEqual(arrow["angle"], 90)
 
     def test_dateline_crossing_uses_the_short_longitude_span(self):
         path = route_preview_path([[[0, 179.9], [1, -179.9]]])

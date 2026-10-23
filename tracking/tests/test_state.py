@@ -70,6 +70,7 @@ class LifecycleTests(TestCase):
             latitude=1.2,
             longitude=2.3,
             accuracy=10,
+            heading=90,
         )
         closed = state.close_event(event.pk, now=NOW)
         self.assertEqual(closed.status, Event.Status.CLOSED)
@@ -78,6 +79,7 @@ class LifecycleTests(TestCase):
         self.assertIsNone(participant.latitude)
         self.assertIsNone(participant.longitude)
         self.assertIsNone(participant.accuracy)
+        self.assertIsNone(participant.heading)
         self.assertIsNone(participant.position_at)
         self.assertIsNone(participant.live_expires_at)
         self.assertFalse(participant.pending_nonce)

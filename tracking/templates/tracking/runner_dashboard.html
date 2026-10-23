@@ -32,22 +32,6 @@
       <a class="button button--primary" href="{% url 'runner_join' %}">Join event</a>
     </div>
   {% endif %}
-
-  <section class="dashboard-section" id="past" aria-labelledby="past-heading">
-    <div class="section-head">
-      <h2 id="past-heading">Past events</h2>
-      <span class="muted">{{ past|length }}</span>
-    </div>
-    {% if past %}
-      <div class="event-carousel" role="region" tabindex="0" aria-roledescription="carousel" aria-label="Past events">
-        {% for item in past %}
-          {% include "tracking/_runner_event_card.html" with item=item %}
-        {% endfor %}
-      </div>
-    {% else %}
-      <p class="empty-list">No past events yet.</p>
-    {% endif %}
-  </section>
 </section>
 {% endblock %}
 {% block scripts %}

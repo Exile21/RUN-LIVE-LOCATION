@@ -21,7 +21,7 @@ from django.views.decorators.http import require_POST
 
 from . import bot, telegram
 from .forms import EventForm, JoinEventForm, RestartEventForm, RunnerSignupForm
-from .gpx import route_preview_path
+from .gpx import route_preview_arrows, route_preview_path
 from .models import Event, Participant, TelegramConfig
 from .snapshots import event_snapshot
 from .state import StateConflict, close_event, open_event, rotate_spectator_token
@@ -199,18 +199,16 @@ def _participation_item(participant: Participant, *, now) -> dict:
         "is_past": ended,
         "map_url": reverse("spectator_detail", args=[event.spectator_token]),
         "route_preview_path": route_preview_path(event.route_segments),
+        "route_preview_arrows": route_preview_arrows(event.route_segments),
         "track_url": reverse("runner_track", args=[participant.public_id])
         if ended and getattr(participant, "track_count", 0)
         else "",
     }
 
 
-@never_cache
-@login_required
-def runner_dashboard(request):
-    now = timezone.now()
+def _runner_items(user, *, now):
     participants = (
-        Participant.objects.filter(user=request.user)
+        Participant.objects.filter(user=user)
         .select_related("event")
         .annotate(track_count=Count("track_points"))
         .order_by("-event__schedule_starts_at", "-created_at")
@@ -220,16 +218,36 @@ def runner_dashboard(request):
     for participant in participants:
         item = _participation_item(participant, now=now)
         (past if item["is_past"] else current).append(item)
+    return current, past
+
+
+@never_cache
+@login_required
+def runner_dashboard(request):
+    now = timezone.now()
+    current, _ = _runner_items(request.user, now=now)
     return _private_page(
         render(
             request,
             "tracking/runner_dashboard.html",
             {
                 "current": current,
-                "past": past,
                 "server_now": _iso(now),
                 "brand_url": reverse("runner_dashboard"),
             },
+        )
+    )
+
+
+@never_cache
+@login_required
+def runner_history(request):
+    _, past = _runner_items(request.user, now=timezone.now())
+    return _private_page(
+        render(
+            request,
+            "tracking/runner_history.html",
+            {"past": past, "brand_url": reverse("runner_dashboard")},
         )
     )
 
@@ -294,6 +312,7 @@ def join_event(request, token: str):
             {
                 "event": event,
                 "route_preview_path": route_preview_path(event.route_segments),
+                "route_preview_arrows": route_preview_arrows(event.route_segments),
                 "brand_url": reverse("runner_dashboard"),
             },
         )
@@ -376,6 +395,7 @@ def event_list(request):
     )
     for event in events:
         event.route_preview_path = route_preview_path(event.route_segments)
+        event.route_preview_arrows = route_preview_arrows(event.route_segments)
     return _private_page(
         render(
             request,

@@ -24,6 +24,7 @@ urlpatterns = [
         name="participant_add_lap",
     ),
     path("my/", views.runner_dashboard, name="runner_dashboard"),
+    path("my/history/", views.runner_history, name="runner_history"),
     path("my/join/", views.runner_join, name="runner_join"),
     path("my/events/<uuid:public_id>/leave/", views.runner_leave, name="runner_leave"),
     path("my/events/<uuid:public_id>/track/", views.runner_track, name="runner_track"),

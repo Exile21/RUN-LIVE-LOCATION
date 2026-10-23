@@ -23,19 +23,35 @@
   const trackColor = getComputedStyle(mapElement).getPropertyValue("--color-accent-2").trim();
   const bounds = L.latLngBounds([]);
 
-  (track.route || []).forEach(function (segment) {
-    const route = (segment || []).filter(function (point) {
-      return Array.isArray(point) && point.length >= 2;
-    });
-    if (route.length < 2) return;
-    L.polyline(route, {
+  const routeModule = typeof window !== "undefined" ? window.RunlineRoute : null;
+  if (routeModule) {
+    routeModule.draw(map, track.route || [], {
       color: routeColor,
       weight: 4,
       opacity: 0.4,
       dashArray: "6 8",
-      lineJoin: "round",
-    }).addTo(map);
-    route.forEach(function (point) { bounds.extend(point); });
+      arrows: true,
+      endpoints: true,
+    });
+  } else {
+    (track.route || []).forEach(function (segment) {
+      const route = (segment || []).filter(function (point) {
+        return Array.isArray(point) && point.length >= 2;
+      });
+      if (route.length < 2) return;
+      L.polyline(route, {
+        color: routeColor,
+        weight: 4,
+        opacity: 0.4,
+        dashArray: "6 8",
+        lineJoin: "round",
+      }).addTo(map);
+    });
+  }
+  (track.route || []).forEach(function (segment) {
+    (segment || []).forEach(function (point) {
+      if (Array.isArray(point) && point.length >= 2) bounds.extend(point);
+    });
   });
 
   L.polyline(

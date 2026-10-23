@@ -386,6 +386,38 @@ class LocationTests(TestCase):
         self.assertEqual(participant.longitude, 2.3)
         self.assertEqual(Participant.objects.filter(event=self.event).count(), 1)
 
+    def test_heading_is_saved_and_shared_in_the_snapshot(self):
+        self.assertTrue(
+            state.apply_location(4001, self.edited(heading=135), 11, edited=True, now=NOW)
+        )
+        participant = Participant.objects.get(pk=self.participant.pk)
+        self.assertEqual(participant.heading, 135)
+        rows = event_snapshot(self.event, staff=False, now=NOW)["runners"]
+        self.assertEqual(rows[0]["heading"], 135)
+
+        without_heading = self.edited(
+            edit_date=NOW + timedelta(seconds=5),
+            latitude=1.3,
+            longitude=2.4,
+        )
+        self.assertTrue(
+            state.apply_location(4001, without_heading, 12, edited=True, now=NOW)
+        )
+        participant.refresh_from_db()
+        self.assertIsNone(participant.heading)
+
+    def test_invalid_heading_is_rejected(self):
+        for heading in (0, 361, "north"):
+            with self.subTest(heading=heading):
+                with self.assertRaises(state.InvalidLocation):
+                    state.apply_location(
+                        4001,
+                        self.edited(heading=heading),
+                        11,
+                        edited=True,
+                        now=NOW,
+                    )
+
     def test_duplicate_and_out_of_order_positions_do_not_regress(self):
         self.assertTrue(state.apply_location(4001, self.edited(), 11, edited=True, now=NOW))
         self.assertFalse(
@@ -529,7 +561,7 @@ class SnapshotTests(TestCase):
         self.assertEqual(len({row["id"] for row in rows}), 2)
         self.assertEqual(
             set(rows[0]),
-            {"id", "number", "name", "status", "latitude", "longitude", "accuracy", "position_at"},
+            {"id", "number", "name", "status", "latitude", "longitude", "accuracy", "heading", "position_at"},
         )
         self.assertNotIn("telegram_user_id", rows[0])
 

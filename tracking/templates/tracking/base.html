@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&display=swap">
   {% block head %}{% endblock %}
-  <link rel="stylesheet" href="{% static 'tracking/app.css' %}?v=20261023h">
+  <link rel="stylesheet" href="{% static 'tracking/app.css' %}?v=20261023i">
 </head>
 <body class="{% block body_class %}{% endblock %}">
   <a class="skip-link" href="#main">Skip to content</a>
@@ -101,7 +101,7 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8.5A2.5 2.5 0 0 0 6.5 6h11A2.5 2.5 0 0 0 20 8.5v1a2.5 2.5 0 0 0 0 5v1a2.5 2.5 0 0 0-2.5 2.5h-11A2.5 2.5 0 0 0 4 15.5v-1a2.5 2.5 0 0 0 0-5v-1Z"/><path d="M12 9v6"/><path d="M9 12h6"/></svg>
             <span>Join</span>
           </a>
-          <a class="app-tab" href="{% url 'runner_dashboard' %}#past">
+          <a class="app-tab{% if request.resolver_match.url_name == 'runner_history' %} is-active{% endif %}" href="{% url 'runner_history' %}"{% if request.resolver_match.url_name == 'runner_history' %} aria-current="page"{% endif %}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>
             <span>History</span>
           </a>

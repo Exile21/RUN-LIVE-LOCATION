@@ -99,8 +99,8 @@ class TrackReviewTests(TestCase):
         self.assertIn("no-store", response["Cache-Control"])
         self.assertIn("noindex", response["X-Robots-Tag"])
 
-        dashboard = self.client.get(reverse("runner_dashboard"))
-        self.assertContains(dashboard, self.url)
+        history = self.client.get(reverse("runner_history"))
+        self.assertContains(history, self.url)
 
     def test_other_users_and_anonymous_cannot_review_the_track(self):
         self.client.force_login(self.other)

@@ -1,0 +1,33 @@
+{% extends "tracking/base.html" %}
+{% block title %}History · Runline{% endblock %}
+{% block app_context %}Runner account{% endblock %}
+{% block content %}
+<section class="page page--dashboard">
+  <div class="page-heading">
+    <div>
+      <h1>History</h1>
+      <p class="lede">Events you have finished.</p>
+    </div>
+  </div>
+
+  {% if past %}
+    <section class="dashboard-section" aria-labelledby="past-heading">
+      <div class="section-head">
+        <h2 id="past-heading">Past events</h2>
+        <span class="muted">{{ past|length }}</span>
+      </div>
+      <div class="event-carousel" role="region" tabindex="0" aria-roledescription="carousel" aria-label="Past events">
+        {% for item in past %}
+          {% include "tracking/_runner_event_card.html" with item=item %}
+        {% endfor %}
+      </div>
+    </section>
+  {% else %}
+    <div class="empty">
+      <h2>No past events yet</h2>
+      <p>Events move here after they finish.</p>
+      <a class="button button--primary" href="{% url 'runner_dashboard' %}">My events</a>
+    </div>
+  {% endif %}
+</section>
+{% endblock %}

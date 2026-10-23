@@ -189,6 +189,16 @@
       </button>
       <button type="button" class="map-chip" id="fit-route">Fit route</button>
     </div>
+    <div class="route-stats" id="route-stats" aria-label="Route summary" hidden>
+      <div>
+        <span class="route-stats__value" id="route-distance">—</span>
+        <span class="route-stats__label">Distance</span>
+      </div>
+      <div id="route-climb-tile" hidden>
+        <span class="route-stats__value" id="route-climb">—</span>
+        <span class="route-stats__label">Climb</span>
+      </div>
+    </div>
     <div class="map-warning" id="map-warning" hidden>Map tiles are unavailable. The runner list remains usable.</div>
     <noscript><p class="map-noscript">Enable JavaScript to view runner positions. Organizers can still manage events.</p></noscript>
   </div>
@@ -216,5 +226,6 @@
 {% block app_tabbar %}{% endblock %}
 {% block scripts %}
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin="" defer></script>
-  <script src="{% static 'tracking/map.js' %}?v=20261023c" defer></script>
+  <script src="{% static 'tracking/route.js' %}?v=20261023" defer></script>
+  <script src="{% static 'tracking/map.js' %}?v=20261023d" defer></script>
 {% endblock %}

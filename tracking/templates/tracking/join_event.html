@@ -16,6 +16,9 @@
   {% if route_preview_path %}
     <svg class="join-route route-preview" viewBox="0 0 320 200" role="img" aria-label="GPX route outline for {{ event.name }}">
       <path d="{{ route_preview_path }}"></path>
+      {% for arrow in route_preview_arrows %}
+        <path class="route-preview-arrow" d="M0 -6 L5 4 L0 2 L-5 4 Z" transform="translate({{ arrow.x }} {{ arrow.y }}) rotate({{ arrow.angle }})"></path>
+      {% endfor %}
     </svg>
   {% endif %}
 

@@ -18,6 +18,7 @@ LOCATION_FIELDS = (
     "latitude",
     "longitude",
     "accuracy",
+    "heading",
     "position_at",
     "received_at",
     "live_expires_at",
@@ -55,6 +56,7 @@ def _clear_position(participant: Participant) -> None:
     participant.latitude = None
     participant.longitude = None
     participant.accuracy = None
+    participant.heading = None
     participant.position_at = None
     participant.received_at = None
     participant.live_expires_at = None
@@ -372,9 +374,15 @@ def _send_position(participant: Participant, location: dict) -> None:
         accuracy = _finite(accuracy, "horizontal_accuracy")
         if not 0 <= accuracy <= 1500:
             raise InvalidLocation("horizontal_accuracy is out of range")
+    heading = location.get("heading")
+    if heading is not None:
+        heading = _int(heading, "heading")
+        if not 1 <= heading <= 360:
+            raise InvalidLocation("heading is out of range")
     participant.latitude = latitude
     participant.longitude = longitude
     participant.accuracy = accuracy
+    participant.heading = heading
 
 
 def _valid_live_period(value) -> int | None:

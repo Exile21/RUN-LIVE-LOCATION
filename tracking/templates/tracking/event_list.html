@@ -46,6 +46,9 @@
             {% if event.route_preview_path %}
               <svg class="route-preview" viewBox="0 0 320 200" role="img" aria-label="GPX route outline for {{ event.name }}">
                 <path d="{{ event.route_preview_path }}"></path>
+                {% for arrow in event.route_preview_arrows %}
+                  <path class="route-preview-arrow" d="M0 -6 L5 4 L0 2 L-5 4 Z" transform="translate({{ arrow.x }} {{ arrow.y }}) rotate({{ arrow.angle }})"></path>
+                {% endfor %}
               </svg>
             {% else %}
               <p class="route-preview-empty">No route outline available.</p>

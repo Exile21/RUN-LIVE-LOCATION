@@ -57,6 +57,7 @@ def location_message(
     latitude=1.05,
     longitude=2.05,
     live_period=3600,
+    heading=None,
     **kwargs,
 ):
     message = {
@@ -70,6 +71,8 @@ def location_message(
             "live_period": live_period,
         },
     }
+    if heading is not None:
+        message["location"]["heading"] = heading
     if edit_date is not None:
         message["edit_date"] = int(edit_date.timestamp())
     message.update(kwargs)

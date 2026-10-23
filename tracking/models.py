@@ -113,6 +113,7 @@ class Participant(models.Model):
     latitude = models.FloatField(null=True, blank=True)
     longitude = models.FloatField(null=True, blank=True)
     accuracy = models.FloatField(null=True, blank=True)
+    heading = models.PositiveSmallIntegerField(null=True, blank=True)
     position_at = models.DateTimeField(null=True, blank=True)
     received_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)

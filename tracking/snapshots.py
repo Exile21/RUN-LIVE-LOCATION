@@ -34,6 +34,7 @@ def event_snapshot(event: Event, *, staff: bool, now: datetime) -> dict:
                 "latitude": participant.latitude if visible else None,
                 "longitude": participant.longitude if visible else None,
                 "accuracy": participant.accuracy if visible else None,
+                "heading": participant.heading if visible else None,
                 "position_at": _iso(participant.position_at) if visible else None,
             }
             if staff:
