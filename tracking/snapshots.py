@@ -21,18 +21,19 @@ def event_snapshot(event: Event, *, staff: bool, now: datetime) -> dict:
         for index, participant in enumerate(participants, start=1):
             status = tracking_status(participant, now=now)
             visible = status in {"live", "stale"}
-            runners.append(
-                {
-                    "id": str(participant.public_id),
-                    "number": f"{index:02d}",
-                    "name": participant.display_name,
-                    "status": status,
-                    "latitude": participant.latitude if visible else None,
-                    "longitude": participant.longitude if visible else None,
-                    "accuracy": participant.accuracy if visible else None,
-                    "position_at": _iso(participant.position_at) if visible else None,
-                }
-            )
+            row = {
+                "id": str(participant.public_id),
+                "number": f"{index:02d}",
+                "name": participant.display_name,
+                "status": status,
+                "latitude": participant.latitude if visible else None,
+                "longitude": participant.longitude if visible else None,
+                "accuracy": participant.accuracy if visible else None,
+                "position_at": _iso(participant.position_at) if visible else None,
+            }
+            if staff:
+                row["laps"] = participant.laps
+            runners.append(row)
     summary = {
         "participants": len(runners),
         "live": sum(1 for runner in runners if runner["status"] == "live"),

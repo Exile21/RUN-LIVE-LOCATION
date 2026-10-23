@@ -1,0 +1,14 @@
+{
+  "scanned": "2026-10-23",
+  "findings": {
+    "fonts": "System sans, serif headings, and monospace labels in tracking/static/tracking/app.css:35",
+    "palette": "Warm paper and orange in tracking/static/tracking/app.css:6, explicitly replaced with slate at the user's request",
+    "motion": "Motion 14.6.0 loaded in tracking/templates/tracking/base.html:43, replaced with requested Anime.js",
+    "spacing": "Phone-first CSS and 44px targets in tracking/static/tracking/app.css:40",
+    "framework": "Django 5.2.9, server-rendered templates, vanilla JavaScript, Leaflet 1.9.4",
+    "preview": "Loopback-only server on 8123 with an isolated temporary database and synthetic fixtures; production database and bot untouched",
+    "render": "Hallmark render engine lacks Puppeteer; captures and interactions use installed agent-browser"
+  },
+  "preserve": ["Routes, handlers and fields", "Privacy and safety wording", "Event lifecycle", "Map, Runners and Info destinations", "Destructive-action confirmations"],
+  "introduce": ["Slate semantic tokens", "Readable fixed app typography", "Compact event rows", "Anime.js state transitions", "Shared design.md"]
+}

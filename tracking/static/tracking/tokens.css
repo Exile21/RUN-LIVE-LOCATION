@@ -1,0 +1,33 @@
+:root {
+  color-scheme: light;
+  --space-3xs: 2px; --space-2xs: 4px; --space-xs: 8px; --space-sm: 12px; --space-md: 16px; --space-lg: 24px; --space-xl: 40px; --space-2xl: 64px; --space-3xl: 96px; --space-4xl: 144px;
+  --text-xs: 0.75rem; --text-sm: 0.875rem; --text-md: 1rem; --text-lg: 1.2rem; --text-xl: 1.44rem; --text-2xl: 1.728rem; --text-3xl: 2.074rem;
+  --text-display-s: 1.44rem; --text-display: 1.728rem; --text-section: 1.2rem; --text-title: 1rem; --text-lead: 1rem;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1); --ease-in: cubic-bezier(0.7, 0, 0.84, 0); --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --dur-micro: 120ms; --dur-short: 220ms; --dur-long: 420ms;
+  --color-error: oklch(46% 0.17 27); --color-success: oklch(40% 0.09 160);
+  --container: 1440px; --gutter: 64px; --gap-columns: 32px; --section-gap-s: 120px; --section-gap: 144px; --section-gap-l: 176px;
+  --z-base: 1; --z-raised: 10; --z-dropdown: 100; --z-sticky: 200; --z-sticky-nav: 300; --z-modal: 400; --z-toast: 500; --z-tooltip: 600;
+  --color-paper: oklch(97.5% 0.006 250); --color-paper-2: oklch(94.8% 0.009 252); --color-paper-3: oklch(91% 0.013 252);
+  --color-ink: oklch(21% 0.028 262); --color-ink-2: oklch(36% 0.022 260); --color-muted: oklch(50% 0.018 258);
+  --color-rule: oklch(90% 0.009 252); --color-rule-2: oklch(83% 0.012 252);
+  --color-graphite: oklch(21% 0.024 262); --color-graphite-2: oklch(26.5% 0.026 262); --color-graphite-ink: oklch(93% 0.010 250); --color-graphite-muted: oklch(69% 0.022 256);
+  --color-accent: oklch(29% 0.028 258); --color-accent-2: oklch(39% 0.028 258); --color-accent-wash: oklch(92% 0.018 252); --color-accent-ink: oklch(98.6% 0.005 250); --color-focus: oklch(54% 0.04 258);
+  --color-surface: oklch(99.3% 0.003 250); --color-clear: transparent;
+  --color-live-wash: oklch(95% 0.025 160); --color-stale: oklch(44% 0.09 75); --color-stale-wash: oklch(96% 0.03 85); --color-error-wash: oklch(96% 0.02 27);
+  --color-map: oklch(92% 0.012 250); --color-route: oklch(33% 0.05 255);
+  --font-display: "IBM Plex Sans", system-ui, sans-serif; --font-body: "IBM Plex Sans", system-ui, sans-serif;
+  --font-outlier: ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --radius-card: 8px; --radius-input: 6px; --radius-pill: 999px;
+  --rule-hair: 1px; --shadow-card: 0 2px 8px oklch(21% 0.028 262 / 0.08);
+  --tracking-display: -0.025em; --display-weight: 600;
+  --paper: var(--color-paper); --surface: var(--color-surface); --surface-sunken: var(--color-paper-2); --surface-inverse: var(--color-graphite);
+  --ink: var(--color-ink); --ink-2: var(--color-ink-2); --ink-3: var(--color-muted);
+  --line: var(--color-rule); --line-strong: var(--color-rule-2);
+  --signal: var(--color-accent); --signal-ink: var(--color-accent-2); --signal-wash: var(--color-accent-wash);
+  --live: var(--color-success); --live-wash: var(--color-live-wash); --stale: var(--color-stale); --stale-wash: var(--color-stale-wash); --expired: var(--color-error); --expired-wash: var(--color-error-wash);
+  --sans: var(--font-body); --serif: var(--font-display); --mono: var(--font-outlier);
+  --header-h: 64px; --tap: 48px; --pad: 16px; --gap: 16px;
+  --r-sm: var(--radius-input); --r: var(--radius-card); --r-lg: 12px; --r-full: var(--radius-pill);
+  --shadow-1: none; --shadow-2: var(--shadow-card); --shadow-3: var(--shadow-card); --ease: var(--ease-out);
+}

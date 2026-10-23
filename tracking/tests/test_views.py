@@ -242,13 +242,23 @@ class AccessTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn("Upload a GPX route", response.content.decode())
 
-    def test_upcoming_event_appears_on_event_list(self):
+    def test_mobile_app_shell_is_rendered_on_organizer_pages(self):
+        self.client.force_login(self.staff)
+        response = self.client.get(reverse("event_list"))
+        self.assertContains(response, 'class="app-tabbar"')
+        self.assertContains(response, 'aria-label="Primary"')
+        self.assertContains(response, 'id="event-search"')
+        detail = self.client.get(reverse("event_detail", args=[self.event.pk]))
+        self.assertNotContains(detail, 'class="app-tabbar"')
+        self.assertContains(detail, 'class="tabbar"')
+
+    def test_event_carousel_has_a_route_outline_and_control_room_link(self):
         from datetime import timedelta
 
         from django.utils import timezone
 
         starts_at = timezone.now() + timedelta(days=1)
-        make_event(
+        event = make_event(
             name="Upcoming test event",
             status=Event.Status.DRAFT,
             group_id=-100888,
@@ -258,5 +268,60 @@ class AccessTests(TestCase):
         self.client.force_login(self.staff)
         response = self.client.get(reverse("event_list"))
         self.assertEqual(response.status_code, 200)
-        self.assertIn("Next scheduled event", response.content.decode())
-        self.assertIn("Upcoming test event", response.content.decode())
+        self.assertContains(response, "Upcoming test event")
+        self.assertContains(response, 'class="event-carousel"')
+        self.assertContains(response, 'aria-label="GPX route outline for Upcoming test event"')
+        self.assertContains(response, 'class="route-preview"')
+        self.assertContains(response, f'href="{reverse("event_detail", args=[event.pk])}"')
+        self.assertContains(response, "Open control room")
+        self.assertNotContains(response, 'class="event-grid"')
+        self.assertNotContains(response, 'class="upcoming-carousel"')
+
+    def test_event_carousel_lists_all_events_regardless_of_status_or_schedule(self):
+        from django.utils import timezone
+
+        now = timezone.now()
+        later = make_event(
+            name="Later draft", status=Event.Status.DRAFT, group_id=-100881,
+            schedule_starts_at=now + timedelta(days=2),
+            schedule_ends_at=now + timedelta(days=2, hours=2),
+        )
+        sooner = make_event(
+            name="Sooner draft", status=Event.Status.DRAFT, group_id=-100882,
+            schedule_starts_at=now + timedelta(days=1),
+            schedule_ends_at=now + timedelta(days=1, hours=2),
+        )
+        past = make_event(
+            name="Past draft", status=Event.Status.DRAFT, group_id=-100883,
+            schedule_starts_at=now - timedelta(days=1),
+        )
+        unscheduled = make_event(
+            name="Unscheduled draft", status=Event.Status.DRAFT, group_id=-100884,
+            schedule_starts_at=None, schedule_ends_at=None,
+        )
+        closed = make_event(
+            name="Closed future event", status=Event.Status.CLOSED, group_id=-100885,
+            schedule_starts_at=now + timedelta(days=1),
+        )
+        self.client.force_login(self.staff)
+        response = self.client.get(reverse("event_list"))
+        expected = [closed, unscheduled, past, sooner, later, self.event]
+        self.assertEqual(list(response.context["events"]), expected)
+        self.assertNotIn("upcoming", response.context)
+        self.assertContains(response, 'class="event-card"', count=len(expected))
+        self.assertContains(response, 'tabindex="0" aria-label="Events"')
+        for event in expected:
+            with self.subTest(event=event.name):
+                self.assertContains(response, f'<h2><a href="{reverse("event_detail", args=[event.pk])}">{event.name}</a></h2>', count=1)
+
+    def test_event_carousel_handles_missing_routes_and_no_events(self):
+        self.event.route_segments = []
+        self.event.save(update_fields=["route_segments"])
+        self.client.force_login(self.staff)
+        response = self.client.get(reverse("event_list"))
+        self.assertContains(response, "No route outline available.")
+        self.assertNotContains(response, 'class="route-preview"')
+        self.event.delete()
+        response = self.client.get(reverse("event_list"))
+        self.assertContains(response, "No events yet")
+        self.assertNotContains(response, 'class="event-carousel"')

@@ -1,0 +1,44 @@
+[
+ {
+  "mode": "redesign",
+  "depth": "full",
+  "scope": "app",
+  "shape": "app screen",
+  "theme": "Cobalt, slate adaptation by request",
+  "axes": "light/grotesk-sans/neutral",
+  "posture": "restrained",
+  "nav": "existing account bar and Map/Runners/Info tabs",
+  "footer": "none, existing application shell",
+  "signature": "actual course map linked to runner roster",
+  "imagery": "actual Leaflet course map; isolated synthetic data only in verification captures",
+  "photos": [],
+  "entry": "map-first mobile tracking and swipeable upcoming events",
+  "fingerprint": "app/map-first/capped-split/ruled-list/native-carousel/tabbar",
+  "sections": [
+   "event carousel and list",
+   "tracking map and roster",
+   "event forms",
+   "organizer sign in"
+  ],
+  "waived": [],
+  "dismissed": [
+   "F4: two outlined Cancel controls misidentified as filled"
+  ],
+  "finish_review": {
+   "source": "subagent",
+   "findings": 5,
+   "resolved": 5
+  },
+  "verification": {
+   "django": 97,
+   "javascript": 6,
+   "responsive": 25,
+   "axe_audits": 5,
+   "floor_failures": 0,
+   "open_reflex": 0,
+   "render_engine": "agent-browser fallback; Puppeteer unavailable"
+  },
+  "prompt": "Redesign Runline with a slate minimalist, mobile-first UI, Anime.js state motion, and a swipeable upcoming-event carousel.",
+  "date": "2026-10-23"
+ }
+]

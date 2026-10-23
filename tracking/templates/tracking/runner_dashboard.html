@@ -1,0 +1,54 @@
+{% extends "tracking/base.html" %}
+{% load static %}
+{% block title %}My events · Runline{% endblock %}
+{% block app_context %}Runner account{% endblock %}
+{% block content %}
+<section class="page page--dashboard" data-server-now="{{ server_now }}">
+  <div class="page-heading">
+    <div>
+      <h1>My events</h1>
+      <p class="lede">Signed in as {{ user.username }}.</p>
+    </div>
+    <a class="heading-action" href="{% url 'runner_join' %}">Join event</a>
+  </div>
+
+  {% if current %}
+    <section class="dashboard-section" aria-labelledby="current-heading">
+      <div class="section-head">
+        <h2 id="current-heading">Current events</h2>
+        <span class="muted">{{ current|length }}</span>
+      </div>
+      <div class="dashboard-grid">
+        {% for item in current %}
+          {% include "tracking/_runner_event_card.html" with item=item %}
+        {% endfor %}
+      </div>
+    </section>
+  {% else %}
+    <div class="empty">
+      <h2>No active events</h2>
+      <p>Use the link from your organizer to join an event. After joining, connect Telegram so you appear on the live map.</p>
+      <a class="button button--primary" href="{% url 'runner_join' %}">Join event</a>
+    </div>
+  {% endif %}
+
+  <section class="dashboard-section" id="past" aria-labelledby="past-heading">
+    <div class="section-head">
+      <h2 id="past-heading">Past events</h2>
+      <span class="muted">{{ past|length }}</span>
+    </div>
+    {% if past %}
+      <div class="dashboard-grid">
+        {% for item in past %}
+          {% include "tracking/_runner_event_card.html" with item=item %}
+        {% endfor %}
+      </div>
+    {% else %}
+      <p class="empty-list">No past events yet.</p>
+    {% endif %}
+  </section>
+</section>
+{% endblock %}
+{% block scripts %}
+  <script src="{% static 'tracking/dashboard.js' %}?v=20261023" defer></script>
+{% endblock %}

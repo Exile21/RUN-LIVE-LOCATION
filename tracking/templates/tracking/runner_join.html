@@ -1,0 +1,32 @@
+{% extends "tracking/base.html" %}
+{% block title %}Join event · Runline{% endblock %}
+{% block app_context %}Runner account{% endblock %}
+{% block content %}
+<section class="page page--narrow">
+  <div class="page-heading">
+    <div>
+      <h1>Join an event</h1>
+      <p class="lede">Paste the link or code your organizer shared.</p>
+    </div>
+  </div>
+
+  <form method="post" class="form-card">
+    {% csrf_token %}
+    {% if form.non_field_errors %}
+      <div class="form-errors" role="alert">
+        {% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}
+      </div>
+    {% endif %}
+    <div class="field">
+      <label for="{{ form.code.id_for_label }}">{{ form.code.label }}</label>
+      {{ form.code }}
+      {% if form.code.errors %}<div>{% for error in form.code.errors %}<p class="field-error">{{ error }}</p>{% endfor %}</div>{% endif %}
+      <p class="help">The link looks like <span class="mono">/join/…</span> or a Telegram bot link.</p>
+    </div>
+    <div class="form-actions">
+      <button class="button button--primary" type="submit">Continue</button>
+      <a class="button button--ghost" href="{% url 'runner_dashboard' %}">Cancel</a>
+    </div>
+  </form>
+</section>
+{% endblock %}

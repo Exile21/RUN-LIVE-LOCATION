@@ -1,0 +1,68 @@
+name: runline
+
+services:
+  app:
+    build: .
+    restart: unless-stopped
+    stop_grace_period: 30s
+    env_file:
+      - .env
+    environment:
+      DJANGO_DEBUG: "false"
+      DATABASE_PATH: /data/db.sqlite3
+    volumes:
+      - sqlite_data:/data
+      - static_data:/app/staticfiles
+    expose:
+      - "8000"
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import socket; socket.create_connection(('127.0.0.1', 8000), 2).close()"
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 30s
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  caddy:
+    image: caddy:2.10.2-alpine
+    restart: unless-stopped
+    depends_on:
+      app:
+        condition: service_healthy
+    environment:
+      PUBLIC_BASE_URL: "${PUBLIC_BASE_URL:?Set PUBLIC_BASE_URL in .env}"
+      APP_UPSTREAM: app:8000
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - static_data:/srv/runline/staticfiles:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  sqlite_data:
+  static_data:
+  caddy_data:
+  caddy_config:

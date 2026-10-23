@@ -1,0 +1,275 @@
+{
+  "responsive": [
+    {
+      "screen": "events",
+      "width": 320,
+      "passed": true
+    },
+    {
+      "screen": "form",
+      "width": 320,
+      "passed": true
+    },
+    {
+      "screen": "login",
+      "width": 320,
+      "passed": true
+    },
+    {
+      "screen": "map",
+      "width": 320,
+      "passed": true
+    },
+    {
+      "screen": "spectator",
+      "width": 320,
+      "passed": true
+    },
+    {
+      "screen": "events",
+      "width": 390,
+      "passed": true
+    },
+    {
+      "screen": "form",
+      "width": 390,
+      "passed": true
+    },
+    {
+      "screen": "login",
+      "width": 390,
+      "passed": true
+    },
+    {
+      "screen": "map",
+      "width": 390,
+      "passed": true
+    },
+    {
+      "screen": "spectator",
+      "width": 390,
+      "passed": true
+    },
+    {
+      "screen": "events",
+      "width": 900,
+      "passed": true
+    },
+    {
+      "screen": "form",
+      "width": 900,
+      "passed": true
+    },
+    {
+      "screen": "login",
+      "width": 900,
+      "passed": true
+    },
+    {
+      "screen": "map",
+      "width": 900,
+      "passed": true
+    },
+    {
+      "screen": "spectator",
+      "width": 900,
+      "passed": true
+    },
+    {
+      "screen": "events",
+      "width": 1440,
+      "passed": true
+    },
+    {
+      "screen": "form",
+      "width": 1440,
+      "passed": true
+    },
+    {
+      "screen": "login",
+      "width": 1440,
+      "passed": true
+    },
+    {
+      "screen": "map",
+      "width": 1440,
+      "passed": true
+    },
+    {
+      "screen": "spectator",
+      "width": 1440,
+      "passed": true
+    },
+    {
+      "screen": "events",
+      "width": 1920,
+      "passed": true
+    },
+    {
+      "screen": "form",
+      "width": 1920,
+      "passed": true
+    },
+    {
+      "screen": "login",
+      "width": 1920,
+      "passed": true
+    },
+    {
+      "screen": "map",
+      "width": 1920,
+      "passed": true
+    },
+    {
+      "screen": "spectator",
+      "width": 1920,
+      "passed": true
+    }
+  ],
+  "accessibility": [
+    {
+      "screen": "events",
+      "width": 390,
+      "violations": [],
+      "incomplete": []
+    },
+    {
+      "screen": "form",
+      "width": 390,
+      "violations": [],
+      "incomplete": []
+    },
+    {
+      "screen": "login",
+      "width": 390,
+      "violations": [],
+      "incomplete": []
+    },
+    {
+      "screen": "map",
+      "width": 390,
+      "violations": [],
+      "incomplete": [
+        {
+          "help": "Elements must meet minimum color contrast ratio thresholds",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.12/color-contrast?application=axeAPI",
+          "id": "color-contrast",
+          "impact": "serious",
+          "nodeCount": 1,
+          "nodes": [
+            {
+              "failureSummary": "Fix all of the following:\n  Axe encountered an error; test the page for this type of problem manually",
+              "html": "<span>Runline</span>",
+              "target": [
+                ".brand > span:nth-child(2)"
+              ]
+            }
+          ],
+          "tags": [
+            "cat.color",
+            "wcag2aa",
+            "wcag143",
+            "TTv5",
+            "TT13.c",
+            "EN-301-549",
+            "EN-9.1.4.3",
+            "ACT",
+            "RGAAv4",
+            "RGAA-3.2.1"
+          ]
+        }
+      ]
+    },
+    {
+      "screen": "spectator",
+      "width": 390,
+      "violations": [],
+      "incomplete": [
+        {
+          "help": "Elements must meet minimum color contrast ratio thresholds",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.12/color-contrast?application=axeAPI",
+          "id": "color-contrast",
+          "impact": "serious",
+          "nodeCount": 1,
+          "nodes": [
+            {
+              "failureSummary": "Fix all of the following:\n  Axe encountered an error; test the page for this type of problem manually",
+              "html": "<span>Runline</span>",
+              "target": [
+                ".brand > span:nth-child(2)"
+              ]
+            }
+          ],
+          "tags": [
+            "cat.color",
+            "wcag2aa",
+            "wcag143",
+            "TTv5",
+            "TT13.c",
+            "EN-301-549",
+            "EN-9.1.4.3",
+            "ACT",
+            "RGAAv4",
+            "RGAA-3.2.1"
+          ]
+        }
+      ]
+    }
+  ],
+  "interactions": [
+    {
+      "carousel": {
+        "count": 3,
+        "offset": 342,
+        "slide": 326,
+        "snap": "x mandatory",
+        "total": 1018,
+        "width": 358
+      }
+    },
+    {
+      "tabs_search_selection_keyboard_and_url_restore": true
+    },
+    {
+      "browser_reduced_motion_skips_anime": true
+    },
+    {
+      "anime_cdn_failure_tabs_work": true
+    },
+    {
+      "ui_script_failure_management_visible": true
+    },
+    {
+      "offline_label_does_not_claim_live": true
+    }
+  ],
+  "contrast": {
+    "focusPaper": 4.698881107019443,
+    "focusPrimary": 3.522888238523866,
+    "mutedWell": 5.133014864827542,
+    "primaryText": 14.53136336655159
+  },
+  "finish_review": {
+    "findings": 5,
+    "resolved": 5,
+    "verification": "Targeted browser recaptures, CSS inspection, computed contrast, active badge check"
+  },
+  "message_layout": [
+    {
+      "mainBottom": 800,
+      "mainTop": 64,
+      "scroll": 320,
+      "shellBottom": 800,
+      "shellTop": 129.6875,
+      "width": 320
+    },
+    {
+      "mainBottom": 900,
+      "mainTop": 72,
+      "scroll": 1440,
+      "shellBottom": 900,
+      "shellTop": 137.6875,
+      "width": 1440
+    }
+  ]
+}

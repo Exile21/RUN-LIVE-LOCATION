@@ -1,66 +1,94 @@
 {% extends "tracking/base.html" %}
-{% block title %}Events · Runline{% endblock %}
+{% load static %}
+{% block title %}Explore events · Runline{% endblock %}
 {% block content %}
 <section class="page page--list">
   <div class="page-heading">
     <div>
-      <p class="eyebrow">Race control</p>
-      <h1>Events</h1>
+      <h1>Explore events</h1>
     </div>
-    <a class="button button--primary" href="{% url 'event_create' %}">New event</a>
+    <a class="heading-action" href="{% url 'event_create' %}">New event</a>
   </div>
 
-  {% if upcoming %}
-    <article class="upcoming">
-      <div>
-        <p class="eyebrow">Next scheduled event</p>
-        <h2>{{ upcoming.name }}</h2>
-        <p class="upcoming__schedule">
-          {{ upcoming.schedule_starts_at|date:"D j M Y, H:i T" }}
-          <span aria-hidden="true">→</span>
-          {{ upcoming.schedule_ends_at|date:"D j M Y, H:i T" }}
-        </p>
-      </div>
-      <a class="card-link" href="{% url 'event_detail' pk=upcoming.pk %}">Open event setup <span aria-hidden="true">→</span></a>
-    </article>
-  {% endif %}
-
   {% if events %}
-    <div class="event-grid">
+    <div class="event-tools">
+      <label class="event-search" for="event-search">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4 4"/></svg>
+        <input id="event-search" type="search" placeholder="Search events" aria-label="Search events" autocomplete="off">
+      </label>
+      <div class="event-filters" role="group" aria-label="Filter events by status">
+        <button type="button" class="filter-chip is-active" data-event-status="" aria-pressed="true">All</button>
+        <button type="button" class="filter-chip" data-event-status="open" aria-pressed="false">Open</button>
+        <button type="button" class="filter-chip" data-event-status="draft" aria-pressed="false">Draft</button>
+        <button type="button" class="filter-chip" data-event-status="closed" aria-pressed="false">Closed</button>
+      </div>
+    </div>
+
+    <ul class="event-carousel" tabindex="0" aria-label="Events" aria-roledescription="carousel">
       {% for event in events %}
-        <article class="event-card">
-          <div class="event-card__top">
+        <li class="event-card" data-name="{{ event.name|lower }}" data-status="{{ event.status }}">
+          <div class="event-card__cover">
+            <a class="event-card__link" href="{% url 'event_detail' pk=event.pk %}">
+              <span class="visually-hidden">Open control room for {{ event.name }}</span>
+            </a>
             <span class="status status--{{ event.status }}">{{ event.get_status_display }}</span>
-            <span class="mono muted">#{{ event.pk }}</span>
-          </div>
-          <h2><a href="{% url 'event_detail' pk=event.pk %}">{{ event.name }}</a></h2>
-          <dl class="event-meta">
-            <div>
-              <dt>Schedule</dt>
-              <dd>
-                {% if event.schedule_starts_at and event.schedule_ends_at %}
-                  {{ event.schedule_starts_at|date:"j M Y, H:i T" }}<br>
-                  {{ event.schedule_ends_at|date:"j M Y, H:i T" }}
+            <span class="event-card__date" aria-hidden="true">
+              {% if event.schedule_starts_at %}
+                <strong>{{ event.schedule_starts_at|date:"j" }}</strong>
+                <span>{{ event.schedule_starts_at|date:"M" }}</span>
+              {% else %}
+                <strong>—</strong>
+                <span>TBD</span>
+              {% endif %}
+            </span>
+
+            {% if event.route_preview_path %}
+              <svg class="route-preview" viewBox="0 0 320 200" role="img" aria-label="GPX route outline for {{ event.name }}">
+                <path d="{{ event.route_preview_path }}"></path>
+              </svg>
+            {% else %}
+              <p class="route-preview-empty">No route outline available.</p>
+            {% endif %}
+
+            <div class="event-card__caption">
+              <h2><a href="{% url 'event_detail' pk=event.pk %}">{{ event.name }}</a></h2>
+              <p>
+                {% if event.schedule_starts_at and event.schedule_ends_at and event.schedule_starts_at|date:"Y-m-d" == event.schedule_ends_at|date:"Y-m-d" %}
+                  {{ event.schedule_starts_at|date:"j M Y" }}
+                {% elif event.schedule_starts_at and event.schedule_ends_at %}
+                  {{ event.schedule_starts_at|date:"j M" }}–{{ event.schedule_ends_at|date:"j M Y" }}
+                {% elif event.schedule_starts_at %}
+                  {{ event.schedule_starts_at|date:"j M Y" }}
                 {% else %}
                   Not scheduled
                 {% endif %}
-              </dd>
+              </p>
             </div>
-            <div><dt>Group</dt><dd class="mono">{{ event.group_id|default:"Not set" }}</dd></div>
-            <div><dt>Route</dt><dd>{{ event.route_segments|length }} segment{{ event.route_segments|length|pluralize }}</dd></div>
-            <div><dt>Created</dt><dd>{{ event.created_at|date:"j M Y, H:i T" }}</dd></div>
-          </dl>
-          <a class="card-link" href="{% url 'event_detail' pk=event.pk %}">Open control room <span aria-hidden="true">→</span></a>
-        </article>
+          </div>
+
+          <details class="event-details">
+            <summary>Event details</summary>
+            <dl class="event-meta">
+              <div><dt>Starts</dt><dd>{% if event.schedule_starts_at %}{{ event.schedule_starts_at|date:"j M Y, H:i T" }}{% else %}Not scheduled{% endif %}</dd></div>
+              <div><dt>Ends</dt><dd>{% if event.schedule_ends_at %}{{ event.schedule_ends_at|date:"j M Y, H:i T" }}{% else %}Not scheduled{% endif %}</dd></div>
+              <div><dt>Group</dt><dd class="mono">{{ event.group_id|default:"Not set" }}</dd></div>
+              <div><dt>Route</dt><dd>{{ event.route_segments|length }} segment{{ event.route_segments|length|pluralize }}</dd></div>
+              <div><dt>Created</dt><dd>{{ event.created_at|date:"j M Y, H:i T" }}</dd></div>
+            </dl>
+          </details>
+        </li>
       {% endfor %}
-    </div>
+    </ul>
+    <p class="event-filter-empty" id="event-filter-empty" hidden>No events match these filters.</p>
   {% else %}
     <div class="empty">
-      <p class="eyebrow">No events yet</p>
-      <h2>Create the first event.</h2>
-      <p>Set the Telegram group in Admin → Telegram settings, then add an event schedule and GPX route. Runners opt in from a private bot chat before they appear on the map.</p>
+      <h2>No events yet</h2>
+      <p>Create the first event. Set the Telegram group in Admin → Telegram settings, then add an event schedule and GPX route. Runners opt in from a private bot chat before they appear on the map.</p>
       <a class="button button--primary" href="{% url 'event_create' %}">New event</a>
     </div>
   {% endif %}
 </section>
+{% endblock %}
+{% block scripts %}
+  <script src="{% static 'tracking/events.js' %}?v=20261023" defer></script>
 {% endblock %}

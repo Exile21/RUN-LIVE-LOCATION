@@ -73,3 +73,33 @@ def parse_gpx(data: bytes) -> list[list[list[float]]]:
     if not segments:
         raise ValidationError("GPX file must contain a track or route with at least two points.")
     return segments
+
+
+def route_preview_path(segments: list[list[list[float]]]) -> str:
+    """Fit validated GPX segments into a centered 320 by 200 SVG path."""
+    segments = [segment for segment in segments if len(segment) >= 2]
+    if not segments:
+        return ""
+    latitudes = [latitude for segment in segments for latitude, _ in segment]
+    # shortcut: local projection for running courses; use a geodesic projection for continent-scale routes.
+    longitude_scale = math.cos(math.radians((min(latitudes) + max(latitudes)) / 2))
+    origin = segments[0][0][1]
+    projected = [
+        [(((longitude - origin + 180) % 360 - 180) * longitude_scale, -latitude)
+         for latitude, longitude in segment]
+        for segment in segments
+    ]
+    xs, ys = zip(*(point for segment in projected for point in segment))
+    left, top = min(xs), min(ys)
+    width, height = max(xs) - left, max(ys) - top
+    if width == 0 and height == 0:
+        return ""
+    scale = min(288 / width if width else math.inf, 168 / height if height else math.inf)
+    offset_x, offset_y = (320 - width * scale) / 2, (200 - height * scale) / 2
+    return " ".join(
+        " ".join(
+            f'{"M" if index == 0 else "L"}{offset_x + (x - left) * scale:.2f},{offset_y + (y - top) * scale:.2f}'
+            for index, (x, y) in enumerate(segment)
+        )
+        for segment in projected
+    )

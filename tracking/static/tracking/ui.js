@@ -1,71 +1,60 @@
-/* Shared UI behaviour: control-room tabs, motion polish, tab bar indicator. */
+/* Tabs work without the optional animation library. */
 (function () {
   "use strict";
 
-  const Motion = window.Motion;
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
   const desktop = window.matchMedia("(min-width: 900px)");
-
-  function animate(target, keyframes, options) {
-    if (!Motion || !target) return null;
-    if (reduceMotion.matches) return null;
-    try {
-      return Motion.animate(target, keyframes, options);
-    } catch (error) {
-      return null;
-    }
-  }
-
-  function spring(extra) {
-    return Object.assign({ type: "spring", stiffness: 420, damping: 34 }, extra || {});
-  }
-
-  const api = {};
-
-  /* ------------------------------------------------------------- tabs -- */
-
   const shell = document.querySelector(".map-shell");
   const tabbar = document.querySelector(".tabbar");
-  const indicator = document.querySelector(".tabbar__indicator");
 
-  function moveIndicator(button, instant) {
-    if (!indicator || !button || !tabbar) return;
-    if (!tabbar.offsetWidth) return;
-    const left = button.offsetLeft - tabbar.clientLeft;
-    const width = button.offsetWidth;
-    indicator.style.width = width + "px";
-    if (instant || !Motion || reduceMotion.matches) {
-      indicator.style.transform = "translateX(" + left + "px)";
-      indicator.style.opacity = "1";
-      return;
-    }
-    animate(indicator, { x: left, opacity: 1 }, spring());
+  function animate(target, properties) {
+    if (!window.anime || !target || reduceMotion.matches) return;
+    window.anime.animate(target, Object.assign({ duration: 180, ease: "out(3)" }, properties));
   }
 
   function setTab(name, options) {
-    if (!shell) return;
+    if (!shell || !tabbar) return;
     const opts = options || {};
-    const next = shell.querySelector('.tabbar__item[data-tab="' + name + '"]');
+    const items = Array.from(tabbar.querySelectorAll(".tabbar__item"));
+    const next = items.find(function (item) { return item.dataset.tab === name; }) || (opts.restore && items[0]);
     if (!next) return;
-    if (shell.dataset.tab === name && !opts.force) {
-      moveIndicator(next);
-      return;
-    }
+    name = next.dataset.tab;
+    const changed = shell.dataset.tab !== name;
     shell.dataset.tab = name;
-    shell.querySelectorAll(".tabbar__item").forEach(function (item) {
+    items.forEach(function (item) {
       const selected = item === next;
       item.setAttribute("aria-selected", selected ? "true" : "false");
       item.setAttribute("tabindex", selected ? "0" : "-1");
     });
-    moveIndicator(next);
-    const section = shell.querySelector('.panel-section[data-section="' + name + '"]');
-    if (section && !desktop.matches) {
-      animate(section, { opacity: [0, 1], y: [12, 0] }, { duration: 0.26, ease: [0.2, 0.7, 0.3, 1] });
+    if (!opts.restore) {
+      const url = new URL(window.location.href);
+      url.searchParams.set("tab", name);
+      window.history.replaceState(null, "", url);
+    }
+    if (changed && !opts.restore && !desktop.matches) {
+      const panel = document.getElementById(next.getAttribute("aria-controls"));
+      animate(panel, { opacity: [0.7, 1], translateY: [4, 0] });
     }
     document.dispatchEvent(new CustomEvent("runline:tab", { detail: { tab: name } }));
   }
 
-  api.setTab = setTab;
+  window.RunlineUI = {
+    setTab: setTab,
+    flash: function (element) { animate(element, { opacity: [0.65, 1], duration: 120 }); },
+  };
+
+  const accountMenu = document.querySelector(".account-menu");
+  if (accountMenu) {
+    document.addEventListener("click", function (event) {
+      if (accountMenu.open && !accountMenu.contains(event.target)) accountMenu.open = false;
+    });
+    document.addEventListener("keydown", function (event) {
+      if (event.key === "Escape" && accountMenu.open) {
+        accountMenu.open = false;
+        accountMenu.querySelector("summary").focus();
+      }
+    });
+  }
 
   if (shell && tabbar) {
     tabbar.addEventListener("click", function (event) {
@@ -73,59 +62,35 @@
       if (button) setTab(button.dataset.tab);
     });
     tabbar.addEventListener("keydown", function (event) {
-      const keys = { ArrowLeft: -1, ArrowRight: 1 };
-      if (!(event.key in keys)) return;
-      event.preventDefault();
-      const items = Array.prototype.slice.call(tabbar.querySelectorAll(".tabbar__item"));
+      const items = Array.from(tabbar.querySelectorAll(".tabbar__item"));
       const index = items.indexOf(document.activeElement);
-      const next = items[(index + keys[event.key] + items.length) % items.length];
+      if (index < 0) return;
+      let next;
+      if (event.key === "Home") next = items[0];
+      else if (event.key === "End") next = items[items.length - 1];
+      else if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+        const step = event.key === "ArrowLeft" ? -1 : 1;
+        next = items[(index + step + items.length) % items.length];
+      } else return;
+      event.preventDefault();
       next.focus();
       setTab(next.dataset.tab);
     });
     document.addEventListener("click", function (event) {
       const trigger = event.target.closest("[data-tab-target]");
-      if (trigger) setTab(trigger.dataset.tabTarget);
-    });
-    window.addEventListener("resize", function () {
-      const active = shell.querySelector('.tabbar__item[aria-selected="true"]');
-      if (active) moveIndicator(active, true);
-    });
-    requestAnimationFrame(function () {
-      const active = shell.querySelector('.tabbar__item[aria-selected="true"]');
-      if (active) {
-        moveIndicator(active, true);
-        shell.querySelectorAll(".tabbar__item").forEach(function (item) {
-          item.setAttribute("tabindex", item === active ? "0" : "-1");
-        });
+      if (trigger) {
+        setTab(trigger.dataset.tabTarget);
+        if (!desktop.matches) tabbar.querySelector('[aria-selected="true"]').focus();
+        else document.getElementById("runner-search").focus();
       }
     });
+    desktop.addEventListener("change", function () {
+      document.dispatchEvent(new CustomEvent("runline:tab", { detail: { tab: "map" } }));
+    });
+    window.addEventListener("popstate", function () {
+      setTab(new URL(window.location.href).searchParams.get("tab") || "map", { restore: true });
+    });
+    setTab(new URL(window.location.href).searchParams.get("tab") || "map", { restore: true });
+    document.documentElement.classList.add("js");
   }
-
-  /* --------------------------------------------------------- entrance -- */
-
-  api.reveal = function (target) {
-    let items = [];
-    if (Array.isArray(target)) items = target;
-    else if (target && target.nodeType === 1) {
-      items = Array.prototype.slice.call(target.querySelectorAll(".runner-row"));
-    } else if (target) items = Array.prototype.slice.call(target);
-    if (!items.length) return;
-    animate(
-      items,
-      { opacity: [0, 1], y: [8, 0] },
-      { duration: 0.32, delay: Motion && Motion.stagger ? Motion.stagger(0.035) : 0, ease: [0.2, 0.7, 0.3, 1] }
-    );
-  };
-
-  api.pulse = function (element) {
-    if (!element) return null;
-    return animate(element, { scale: [1, 1.45, 1] }, { duration: 1.6, repeat: Infinity, ease: "easeInOut" });
-  };
-
-  api.flash = function (element) {
-    if (!element) return;
-    animate(element, { scale: [1, 1.12, 1] }, { duration: 0.35, ease: [0.2, 0.7, 0.3, 1] });
-  };
-
-  window.RunlineUI = api;
 })();

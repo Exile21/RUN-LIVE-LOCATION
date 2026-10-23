@@ -1,21 +1,27 @@
 import json
 import secrets
 from functools import wraps
+from urllib.parse import urlencode
 
 from django.conf import settings
 from django.contrib import messages
-from django.contrib.auth.views import redirect_to_login
+from django.contrib.auth import login
+from django.contrib.auth.decorators import login_required
+from django.contrib.auth.views import LoginView, redirect_to_login
 from django.core.exceptions import RequestDataTooBig, ValidationError
+from django.db.models import F
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.cache import never_cache
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
 from . import bot, telegram
-from .forms import EventForm
+from .forms import EventForm, JoinEventForm, RunnerSignupForm
+from .gpx import route_preview_path
 from .models import Event, Participant, TelegramConfig
 from .snapshots import event_snapshot
 from .state import StateConflict, close_event, open_event, rotate_spectator_token
@@ -61,24 +67,249 @@ def _private_page(response, *, index: bool = False):
     return response
 
 
+class RunnerLoginView(LoginView):
+    template_name = "registration/login.html"
+
+    def get_success_url(self):
+        target = self.get_redirect_url()
+        if target:
+            return target
+        if self.request.user.is_staff:
+            return reverse("event_list")
+        return reverse("runner_dashboard")
+
+
+def _next_url(request) -> str:
+    value = request.POST.get("next") or request.GET.get("next") or ""
+    if value and url_has_allowed_host_and_scheme(
+        value, {request.get_host()}, require_https=request.is_secure()
+    ):
+        return value
+    return ""
+
+
+def runner_signup(request):
+    next_url = _next_url(request)
+    if request.user.is_authenticated:
+        return redirect(next_url or ("event_list" if request.user.is_staff else "runner_dashboard"))
+    if request.method == "POST":
+        form = RunnerSignupForm(request.POST)
+        if form.is_valid():
+            user = form.save()
+            login(request, user)
+            messages.success(request, "Runner account created.")
+            return redirect(next_url or "runner_dashboard")
+    else:
+        form = RunnerSignupForm()
+    return _private_page(
+        render(request, "registration/signup.html", {"form": form, "next": next_url})
+    )
+
+
+def _iso(value):
+    if value is None:
+        return ""
+    return timezone.localtime(value).isoformat(timespec="seconds")
+
+
+def _duration_label(seconds: float) -> str:
+    seconds = max(0, int(seconds))
+    hours, remainder = divmod(seconds, 3600)
+    minutes, seconds = divmod(remainder, 60)
+    return f"{hours:02d}:{minutes:02d}:{seconds:02d}"
+
+
+def _when(value):
+    return timezone.localtime(value).strftime("%d %b %Y, %H:%M").lstrip("0") if value else ""
+
+
+def _participation_item(participant: Participant, *, now) -> dict:
+    event = participant.event
+    starts_at = event.schedule_starts_at
+    ends_at = event.schedule_ends_at
+    ended = event.status == Event.Status.CLOSED or (ends_at is not None and ends_at <= now)
+    started = starts_at is not None and starts_at <= now
+    live_start = ""
+    if started and not ended:
+        time_label = "Elapsed"
+        time_value = _duration_label((now - starts_at).total_seconds())
+        live_start = _iso(starts_at)
+    elif ended and starts_at is not None:
+        finish = ends_at or event.closed_at or now
+        time_label = "Final duration"
+        time_value = _duration_label((finish - starts_at).total_seconds())
+    elif starts_at is not None:
+        time_label = "Starts"
+        time_value = timezone.localtime(starts_at).strftime("%d %b, %H:%M").lstrip("0")
+    else:
+        time_label = "Schedule"
+        time_value = "Not scheduled"
+
+    if starts_at and ends_at:
+        schedule_label = f"{_when(starts_at)} – {timezone.localtime(ends_at).strftime('%H:%M')}"
+    else:
+        schedule_label = _when(starts_at) or "Schedule not set"
+
+    active = (
+        event.status == Event.Status.OPEN
+        and participant.consented_at is not None
+        and not participant.withdrawn
+    )
+    claim_url = ""
+    if active:
+        telegram_label = "Telegram connected"
+    elif ended:
+        telegram_label = "Telegram linked" if participant.telegram_user_id else "Telegram not connected"
+    else:
+        if participant.telegram_user_id is None:
+            telegram_label = "Connect Telegram"
+        elif participant.consented_at is None:
+            telegram_label = "Finish Telegram setup"
+        else:
+            telegram_label = "Reconnect Telegram"
+        try:
+            claim_url = bot.claim_link(participant)
+        except telegram.TelegramConfigError:
+            claim_url = ""
+
+    return {
+        "participant": participant,
+        "event": event,
+        "event_name": event.name,
+        "event_status": event.status,
+        "status_label": event.get_status_display(),
+        "schedule_label": schedule_label,
+        "time_label": time_label,
+        "time_value": time_value,
+        "live_start": live_start,
+        "laps": participant.laps,
+        "telegram_label": telegram_label,
+        "claim_url": claim_url,
+        "telegram_note": "" if claim_url or active or ended else "Telegram bot is not configured.",
+        "can_leave": not active,
+        "is_past": ended,
+        "map_url": reverse("spectator_detail", args=[event.spectator_token]),
+    }
+
+
+@never_cache
+@login_required
+def runner_dashboard(request):
+    now = timezone.now()
+    participants = (
+        Participant.objects.filter(user=request.user)
+        .select_related("event")
+        .order_by("-event__schedule_starts_at", "-created_at")
+    )
+    current = []
+    past = []
+    for participant in participants:
+        item = _participation_item(participant, now=now)
+        (past if item["is_past"] else current).append(item)
+    return _private_page(
+        render(
+            request,
+            "tracking/runner_dashboard.html",
+            {
+                "current": current,
+                "past": past,
+                "server_now": _iso(now),
+                "brand_url": reverse("runner_dashboard"),
+            },
+        )
+    )
+
+
+@never_cache
+@login_required
+def runner_join(request):
+    if request.method == "POST":
+        form = JoinEventForm(request.POST)
+        if form.is_valid():
+            return redirect("join_event", token=form.cleaned_data["code"])
+    else:
+        form = JoinEventForm()
+    return _private_page(
+        render(
+            request,
+            "tracking/runner_join.html",
+            {"form": form, "brand_url": reverse("runner_dashboard")},
+        )
+    )
+
+
+@never_cache
+def join_event(request, token: str):
+    event = get_object_or_404(Event, enrollment_token=token, status=Event.Status.OPEN)
+    if not request.user.is_authenticated:
+        query = urlencode({"next": request.get_full_path()})
+        return redirect(f"{reverse('signup')}?{query}")
+    existing = Participant.objects.filter(event=event, user=request.user).first()
+    if existing is not None:
+        messages.info(request, f"You already joined {event.name}.")
+        return redirect("runner_dashboard")
+    if request.method == "POST":
+        display_name = (request.user.get_full_name() or request.user.username)[:160]
+        _, created = Participant.objects.get_or_create(
+            event=event,
+            user=request.user,
+            defaults={
+                "display_name": display_name,
+                "withdrawn": True,
+                "session_ended": True,
+            },
+        )
+        if created:
+            messages.success(
+                request,
+                f"Joined {event.name}. Connect Telegram to appear on the live map.",
+            )
+        else:
+            messages.info(request, f"You already joined {event.name}.")
+        return redirect("runner_dashboard")
+    return _private_page(
+        render(
+            request,
+            "tracking/join_event.html",
+            {
+                "event": event,
+                "route_preview_path": route_preview_path(event.route_segments),
+                "brand_url": reverse("runner_dashboard"),
+            },
+        )
+    )
+
+
+@never_cache
+@login_required
+@require_POST
+def runner_leave(request, public_id):
+    participant = get_object_or_404(Participant, public_id=public_id, user=request.user)
+    active = (
+        participant.event.status == Event.Status.OPEN
+        and participant.consented_at is not None
+        and not participant.withdrawn
+    )
+    if active:
+        messages.error(request, "Stop sharing Live Location in Telegram before leaving this event.")
+    else:
+        name = participant.event.name
+        participant.delete()
+        messages.success(request, f"You left {name}.")
+    return redirect("runner_dashboard")
+
+
 @never_cache
 @staff_page
 def event_list(request):
-    now = timezone.now()
     events = Event.objects.all().order_by("-created_at")
-    upcoming = (
-        Event.objects.filter(
-            status=Event.Status.DRAFT,
-            schedule_starts_at__gt=now,
-        )
-        .order_by("schedule_starts_at")
-        .first()
-    )
+    for event in events:
+        event.route_preview_path = route_preview_path(event.route_segments)
     return _private_page(
         render(
             request,
             "tracking/event_list.html",
-            {"events": events, "upcoming": upcoming},
+            {"events": events},
         )
     )
 
@@ -154,6 +385,11 @@ def _event_map(request, event: Event, *, staff: bool):
             "snapshot_url": snapshot_url,
             "spectator_url": spectator_url,
             "enrollment_url": enrollment_url,
+            "join_url": request.build_absolute_uri(
+                reverse("join_event", args=[event.enrollment_token])
+            )
+            if staff
+            else "",
             "brand_url": reverse("event_list")
             if staff
             else reverse("spectator_detail", args=[event.spectator_token]),
@@ -241,6 +477,34 @@ def event_rotate_link(request, pk: int):
 @never_cache
 @staff_page
 @require_POST
+def event_share_telegram(request, pk: int):
+    event = get_object_or_404(Event, pk=pk)
+    if event.status != Event.Status.OPEN or event.group_id is None:
+        messages.error(request, "Open the event before sending its sign-up link.")
+        return redirect(f"{reverse('event_detail', args=[event.pk])}?tab=info")
+    join_url = request.build_absolute_uri(
+        reverse("join_event", args=[event.enrollment_token])
+    )
+    text = (
+        f"Join {event.name}.\n\n"
+        f"{join_url}\n\n"
+        "Create a free runner account, then connect Telegram to share Live Location "
+        "and appear on the map."
+    )
+    try:
+        telegram.telegram_call(
+            "sendMessage", {"chat_id": event.group_id, "text": text[:4000]}
+        )
+    except telegram.TelegramError as exc:
+        messages.error(request, f"Could not send the event to Telegram: {exc}")
+    else:
+        messages.success(request, "Event sign-up link sent to the Telegram group.")
+    return redirect(f"{reverse('event_detail', args=[event.pk])}?tab=info")
+
+
+@never_cache
+@staff_page
+@require_POST
 def participant_rename(request, pk: int, public_id):
     event = get_object_or_404(Event, pk=pk)
     participant = get_object_or_404(Participant, event=event, public_id=public_id)
@@ -252,6 +516,20 @@ def participant_rename(request, pk: int, public_id):
         participant.save(update_fields=["display_name"])
         messages.success(request, "Runner name updated.")
     return redirect("event_detail", pk=event.pk)
+
+
+@never_cache
+@staff_page
+@require_POST
+def participant_add_lap(request, pk: int, public_id):
+    event = get_object_or_404(Event, pk=pk)
+    participant = get_object_or_404(
+        Participant, event=event, public_id=public_id, consented_at__isnull=False
+    )
+    Participant.objects.filter(pk=participant.pk).update(laps=F("laps") + 1)
+    participant.refresh_from_db(fields=["laps"])
+    messages.success(request, f"{participant.display_name}: {participant.laps} laps.")
+    return redirect(f"{reverse('event_detail', args=[event.pk])}?tab=runners")
 
 
 @csrf_exempt

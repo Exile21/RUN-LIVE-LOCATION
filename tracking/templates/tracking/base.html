@@ -3,32 +3,68 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#f4f1e8">
+  <meta name="description" content="Follow runners on the event route with Runline, powered by Telegram Live Location.">
   <title>{% block title %}Runline{% endblock %}</title>
-  <link rel="stylesheet" href="{% static 'tracking/app.css' %}?v=20261022h">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&display=swap">
   {% block head %}{% endblock %}
+  <link rel="stylesheet" href="{% static 'tracking/app.css' %}?v=20261023d">
 </head>
 <body class="{% block body_class %}{% endblock %}">
   <a class="skip-link" href="#main">Skip to content</a>
   <header class="site-header">
-    <a class="brand" href="{% if brand_url %}{{ brand_url }}{% else %}{% url 'event_list' %}{% endif %}" aria-label="Runline home">
+    <a class="brand" href="{% if brand_url %}{{ brand_url }}{% elif user.is_staff %}{% url 'event_list' %}{% elif user.is_authenticated %}{% url 'runner_dashboard' %}{% else %}{% url 'login' %}{% endif %}" aria-label="Runline home">
       <span class="brand-mark" aria-hidden="true"></span>
-      <span>RUNLINE</span>
+      <span class="brand-copy">
+        <span class="brand-eyebrow">{% block app_context %}Race control{% endblock %}</span>
+        <span>Runline</span>
+      </span>
     </a>
     <nav class="site-nav" aria-label="Account">
       {% if user.is_authenticated %}
         {% if user.is_staff %}
           <a href="{% url 'event_list' %}">Events</a>
           <a href="{% url 'admin:index' %}">Admin</a>
+        {% else %}
+          <a href="{% url 'runner_dashboard' %}">My events</a>
         {% endif %}
         <form method="post" action="{% url 'logout' %}" class="inline-form">
           {% csrf_token %}
           <button type="submit" class="link-button">Sign out</button>
         </form>
       {% else %}
-        <a href="{% url 'login' %}">Organizer sign in</a>
+        <a href="{% url 'login' %}{% if request.GET.next %}?next={{ request.GET.next|urlencode }}{% endif %}">Sign in</a>
       {% endif %}
     </nav>
+    <details class="account-menu">
+      <summary aria-label="Account menu">
+        {% if user.is_authenticated %}
+          <span class="avatar" aria-hidden="true">{{ user.username|first|upper }}</span>
+        {% else %}
+          <span class="avatar avatar--guest" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="8" r="3.4"/><path d="M5.5 20a6.5 6.5 0 0 1 13 0"/></svg>
+          </span>
+        {% endif %}
+      </summary>
+      <div class="account-menu__panel">
+        {% if user.is_authenticated %}
+          <p class="account-menu__name">Signed in as <strong>{{ user.username }}</strong></p>
+          {% if user.is_staff %}
+            <a href="{% url 'event_list' %}">Events</a>
+            <a href="{% url 'admin:index' %}">Admin</a>
+          {% else %}
+            <a href="{% url 'runner_dashboard' %}">My events</a>
+          {% endif %}
+          <form method="post" action="{% url 'logout' %}">
+            {% csrf_token %}
+            <button type="submit" class="link-button">Sign out</button>
+          </form>
+        {% else %}
+          <a href="{% url 'login' %}{% if request.GET.next %}?next={{ request.GET.next|urlencode }}{% endif %}">Sign in</a>
+        {% endif %}
+      </div>
+    </details>
   </header>
   <main id="main">
     {% if messages %}
@@ -40,8 +76,48 @@
     {% endif %}
     {% block content %}{% endblock %}
   </main>
-  <script src="https://cdn.jsdelivr.net/npm/motion@14.6.0/dist/motion.js" defer></script>
-  <script src="{% static 'tracking/ui.js' %}?v=20261022h" defer></script>
+  {% block app_tabbar %}
+    {% if user.is_authenticated %}
+      <nav class="app-tabbar" aria-label="Primary">
+        {% if user.is_staff %}
+          <a class="app-tab{% if request.resolver_match.url_name == 'event_list' or request.resolver_match.url_name == 'event_edit' %} is-active{% endif %}" href="{% url 'event_list' %}"{% if request.resolver_match.url_name == 'event_list' or request.resolver_match.url_name == 'event_edit' %} aria-current="page"{% endif %}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 11.5 12 5l8 6.5V20a1 1 0 0 1-1 1h-4.5v-6h-5v6H5a1 1 0 0 1-1-1v-8.5Z"/></svg>
+            <span>Events</span>
+          </a>
+          <a class="app-tab{% if request.resolver_match.url_name == 'event_create' %} is-active{% endif %}" href="{% url 'event_create' %}"{% if request.resolver_match.url_name == 'event_create' %} aria-current="page"{% endif %}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8.5A2.5 2.5 0 0 0 6.5 6h11A2.5 2.5 0 0 0 20 8.5v1a2.5 2.5 0 0 0 0 5v1a2.5 2.5 0 0 0-2.5 2.5h-11A2.5 2.5 0 0 0 4 15.5v-1a2.5 2.5 0 0 0 0-5v-1Z"/><path d="M12 9v6"/><path d="M9 12h6"/></svg>
+            <span>New</span>
+          </a>
+          <a class="app-tab" href="{% url 'admin:index' %}">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h9"/><path d="M17 7h3"/><circle cx="15" cy="7" r="2"/><path d="M4 17h3"/><path d="M11 17h9"/><circle cx="9" cy="17" r="2"/></svg>
+            <span>Admin</span>
+          </a>
+        {% else %}
+          <a class="app-tab{% if request.resolver_match.url_name == 'runner_dashboard' %} is-active{% endif %}" href="{% url 'runner_dashboard' %}"{% if request.resolver_match.url_name == 'runner_dashboard' %} aria-current="page"{% endif %}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 11.5 12 5l8 6.5V20a1 1 0 0 1-1 1h-4.5v-6h-5v6H5a1 1 0 0 1-1-1v-8.5Z"/></svg>
+            <span>My events</span>
+          </a>
+          <a class="app-tab{% if request.resolver_match.url_name == 'runner_join' or request.resolver_match.url_name == 'join_event' %} is-active{% endif %}" href="{% url 'runner_join' %}"{% if request.resolver_match.url_name == 'runner_join' or request.resolver_match.url_name == 'join_event' %} aria-current="page"{% endif %}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8.5A2.5 2.5 0 0 0 6.5 6h11A2.5 2.5 0 0 0 20 8.5v1a2.5 2.5 0 0 0 0 5v1a2.5 2.5 0 0 0-2.5 2.5h-11A2.5 2.5 0 0 0 4 15.5v-1a2.5 2.5 0 0 0 0-5v-1Z"/><path d="M12 9v6"/><path d="M9 12h6"/></svg>
+            <span>Join</span>
+          </a>
+          <a class="app-tab" href="{% url 'runner_dashboard' %}#past">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>
+            <span>History</span>
+          </a>
+        {% endif %}
+        <form method="post" action="{% url 'logout' %}" class="app-tabbar__form">
+          {% csrf_token %}
+          <button type="submit" class="app-tab">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="3.4"/><path d="M5.5 20a6.5 6.5 0 0 1 13 0"/><path d="m17 4 3 3-3 3"/><path d="M20 7h-5"/></svg>
+            <span>Sign out</span>
+          </button>
+        </form>
+      </nav>
+    {% endif %}
+  {% endblock %}
+  <script src="https://cdn.jsdelivr.net/npm/animejs@4.5.0/dist/bundles/anime.umd.min.js" integrity="sha384-InMmvD3VoYcY7hGjSC80aLb2bNNE4CzpX+Eq6FVDlmB0IKgDvmfPw4UY8L/M++iG" crossorigin="anonymous" defer></script>
+  <script src="{% static 'tracking/ui.js' %}?v=20261023b" defer></script>
   {% block scripts %}{% endblock %}
 </body>
 </html>

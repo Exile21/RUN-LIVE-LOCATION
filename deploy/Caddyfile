@@ -1,4 +1,4 @@
-tracking.example.com {
+{$PUBLIC_BASE_URL:tracking.example.com} {
 	encode zstd gzip
 	log {
 		output discard
@@ -10,6 +10,6 @@ tracking.example.com {
 	}
 
 	handle {
-		reverse_proxy 127.0.0.1:8001
+		reverse_proxy {$APP_UPSTREAM:127.0.0.1:8001}
 	}
 }

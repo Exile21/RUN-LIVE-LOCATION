@@ -2,6 +2,7 @@ import json
 from datetime import timedelta
 from unittest.mock import patch
 
+from django.contrib.auth import get_user_model
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 
@@ -9,6 +10,8 @@ from tracking import bot, state
 from tracking.models import Event, Participant
 from tracking.snapshots import event_snapshot
 from tracking.tests.helpers import NOW, location_message, make_event, make_participant
+
+User = get_user_model()
 
 
 @override_settings(
@@ -280,6 +283,68 @@ class OnboardingTests(BotTestCase):
         second_participant.refresh_from_db()
         self.assertFalse(second_participant.withdrawn)
         self.assertFalse(second_participant.pending_nonce)
+
+
+class RegistrationClaimTests(BotTestCase):
+    def _runner(self, username="runner"):
+        return User.objects.create_user(username, password="StrongPass-123")
+
+    def _registration(self, event, user):
+        return Participant.objects.create(
+            event=event,
+            user=user,
+            display_name="Runner",
+            withdrawn=True,
+            session_ended=True,
+        )
+
+    def test_personal_start_claims_a_web_registration(self):
+        event = self.event()
+        runner = self._runner()
+        registration = self._registration(event, runner)
+        update = self.start_message(event, user_id=5001)
+        update["message"]["text"] = f"/start p_{registration.public_id.hex}"
+
+        bot.handle_update(update, now=NOW)
+
+        registration.refresh_from_db()
+        self.assertEqual(registration.telegram_user_id, 5001)
+        self.assertEqual(registration.private_chat_id, 5001)
+        self.assertTrue(registration.pending_nonce)
+        self.assertEqual(registration.user, runner)
+        self.assertIn("Joining Test event as Alex", self.sent[-1][1]["text"])
+
+    def test_claim_merges_an_existing_telegram_tracker_and_keeps_laps(self):
+        event = self.event()
+        runner = self._runner()
+        registration = self._registration(event, runner)
+        tracked = make_participant(event, user_id=5001, laps=2)
+        update = self.start_message(event, user_id=5001)
+        update["message"]["text"] = f"/start p_{registration.public_id.hex}"
+
+        bot.handle_update(update, now=NOW)
+
+        self.assertFalse(Participant.objects.filter(pk=registration.pk).exists())
+        tracked.refresh_from_db()
+        self.assertEqual(tracked.user, runner)
+        self.assertEqual(tracked.laps, 2)
+        self.assertEqual(Participant.objects.filter(event=event).count(), 1)
+        self.assertIn("already sharing", self.sent[-1][1]["text"])
+
+    def test_claimed_link_rejects_another_telegram_account(self):
+        event = self.event()
+        registration = self._registration(event, self._runner())
+        registration.telegram_user_id = 5001
+        registration.private_chat_id = 5001
+        registration.save(update_fields=["telegram_user_id", "private_chat_id"])
+        update = self.start_message(event, user_id=5002)
+        update["message"]["text"] = f"/start p_{registration.public_id.hex}"
+
+        bot.handle_update(update, now=NOW)
+
+        registration.refresh_from_db()
+        self.assertEqual(registration.telegram_user_id, 5001)
+        self.assertEqual(self.sent[-1][1]["text"], "This runner link is no longer active.")
 
 
 class LocationTests(TestCase):

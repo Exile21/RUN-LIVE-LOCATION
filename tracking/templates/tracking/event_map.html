@@ -1,6 +1,7 @@
 {% extends "tracking/base.html" %}
 {% load static %}
 {% block title %}{{ event.name }} · Runline{% endblock %}
+{% block app_context %}Live tracking{% endblock %}
 {% block head %}
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
   {% if not is_staff_view %}<meta name="robots" content="noindex, nofollow">{% endif %}
@@ -8,18 +9,21 @@
 {% block body_class %}map-page{% endblock %}
 {% block content %}
 <section class="map-shell" data-tab="map" data-mode="{% if is_staff_view %}staff{% else %}spectator{% endif %}">
+  <header class="map-heading">
+    <div>
+      <h1 class="event-title">{{ event.name }}</h1>
+      <p class="view-label">{% if is_staff_view %}Race control{% else %}Spectator view{% endif %}</p>
+    </div>
+    <p class="event-status">
+      <span class="status status--{{ event.status }}">{{ event.get_status_display }}</span>
+      {% if event.status == "open" %}<span class="muted">Live map</span>{% endif %}
+    </p>
+  </header>
   <div class="map-panel">
     <div class="panel-inner">
 
       <section class="panel-section" data-section="info" id="panel-info" role="tabpanel" aria-labelledby="tab-info">
-        <header>
-          <p class="eyebrow">{% if is_staff_view %}Race control{% else %}Spectator view{% endif %}</p>
-          <h1 class="event-title">{{ event.name }}</h1>
-          <p class="event-status">
-            <span class="status status--{{ event.status }}">{{ event.get_status_display }}</span>
-            {% if event.status == "open" %}<span class="muted">Live map</span>{% endif %}
-          </p>
-        </header>
+        <h2>Event details</h2>
 
         <dl class="event-schedule">
           <div>
@@ -86,11 +90,23 @@
             </div>
             {% if enrollment_url %}
               <div class="share-block">
-                <label for="runner-link">Runner onboarding link</label>
+                <label for="runner-link">Telegram onboarding link</label>
                 <input id="runner-link" class="mono" type="text" value="{{ enrollment_url }}" readonly>
                 <p class="help">Existing group members can use this too. Runners must agree and share Live Location in the private bot chat.</p>
               </div>
             {% endif %}
+            <div class="share-block">
+              <label for="runner-join-link">Runner sign-up page</label>
+              <input id="runner-join-link" class="mono" type="text" value="{{ join_url }}" readonly>
+              <p class="help">Runners create an account, join here, then connect Telegram to share Live Location.</p>
+              <div class="control-actions">
+                <form method="post" action="{% url 'event_share_telegram' pk=event.pk %}">
+                  {% csrf_token %}
+                  <button class="button button--primary button--small" type="submit">Send to Telegram</button>
+                </form>
+              </div>
+              <p class="help">Posts this sign-up link in the event's Telegram group.</p>
+            </div>
           {% endif %}
         {% else %}
           <p class="panel-note">This read-only map is available to anyone with the link. Locations may be delayed. Share Live Location is controlled by each runner.</p>
@@ -100,20 +116,19 @@
       <section class="panel-section" data-section="runners" id="panel-runners" role="tabpanel" aria-labelledby="tab-runners">
         <div class="section-head">
           <h2>Runners</h2>
-          <p class="muted" style="font-size:12px">Updated every 5s</p>
+          <p class="refresh-label muted">Updated every 5s</p>
         </div>
 
-        <div class="summary" aria-label="Runner summary">
+        <div class="summary" role="group" aria-label="Runner summary">
           <div><span class="summary__value" id="summary-participants">{{ snapshot.summary.participants }}</span><span class="summary__label">Runners</span></div>
           <div id="summary-live-tile"><span class="summary__value" id="summary-live">{{ snapshot.summary.live }}</span><span class="summary__label">Live</span></div>
           <div id="summary-stale-tile"><span class="summary__value" id="summary-stale">{{ snapshot.summary.stale }}</span><span class="summary__label">Stale</span></div>
         </div>
 
         <div class="connection" id="connection" role="status" aria-live="polite">
-          <span class="dot" aria-hidden="true"></span>
           <span id="connection-text">Loading map…</span>
         </div>
-        <p class="refresh-line">Last successful refresh: <time id="last-refresh">—</time></p>
+        <p class="refresh-line">Last successful refresh: <time id="last-refresh">Not yet refreshed</time></p>
         <p class="panel-note">GPS and Telegram delivery can lag or stop. This is not an emergency or official timing system.</p>
 
         <div class="runner-tools">
@@ -122,6 +137,7 @@
         </div>
 
         <ul class="runner-list" id="runner-list" aria-label="Runners"></ul>
+        <noscript><p class="panel-note">Enable JavaScript to load the runner list.</p></noscript>
         <p class="empty-list" id="runner-empty"{% if snapshot.runners %} hidden{% endif %}>No runners on the map yet.</p>
 
         {% if is_staff_view %}
@@ -134,6 +150,13 @@
             </div>
             <p class="help">Visible to everyone with the spectator link.</p>
           </form>
+          <form method="post" id="lap-form" class="lap-form" hidden>
+            {% csrf_token %}
+            <div class="lap-row">
+              <p>Laps: <strong id="lap-count">0</strong></p>
+              <button class="button button--primary button--small" type="submit">Add lap</button>
+            </div>
+          </form>
         {% endif %}
       </section>
 
@@ -141,12 +164,11 @@
   </div>
 
   <div class="map-wrap" id="map-stage" role="tabpanel" aria-labelledby="tab-map">
-    <div id="map" aria-label="Event route and runner positions" data-snapshot-url="{{ snapshot_url }}" data-mode="{% if is_staff_view %}staff{% else %}spectator{% endif %}"{% if is_staff_view %} data-rename-template="{% url 'participant_rename' pk=event.pk public_id='00000000-0000-0000-0000-000000000000' %}"{% endif %}></div>
+    <div id="map" role="region" aria-label="Event route and runner positions" data-snapshot-url="{{ snapshot_url }}" data-mode="{% if is_staff_view %}staff{% else %}spectator{% endif %}"{% if is_staff_view %} data-rename-template="{% url 'participant_rename' pk=event.pk public_id='00000000-0000-0000-0000-000000000000' %}" data-lap-template="{% url 'participant_add_lap' pk=event.pk public_id='00000000-0000-0000-0000-000000000000' %}"{% endif %}></div>
     <div class="map-overlay">
       <button type="button" class="map-chip" id="map-live-chip" data-tab-target="runners" hidden>
-        <span class="dot" aria-hidden="true"></span>
         <span class="map-chip__count" id="map-live-count">0</span>
-        <span>live</span>
+        <span id="map-live-label">live</span>
       </button>
       <button type="button" class="map-chip" id="fit-route">Fit route</button>
     </div>
@@ -155,7 +177,6 @@
   </div>
 
   <nav class="tabbar" role="tablist" aria-label="Control room sections">
-    <span class="tabbar__indicator" aria-hidden="true"></span>
     <button type="button" class="tabbar__item" role="tab" id="tab-map" data-tab="map" aria-selected="true" aria-controls="map-stage">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4 3 6.5v13L9 17l6 3 6-2.5v-13L15 7 9 4Z"/><path d="M9 4v13"/><path d="M15 7v13"/></svg>
       <span>Map</span>
@@ -175,7 +196,8 @@
 </section>
 {{ snapshot|json_script:"initial-snapshot" }}
 {% endblock %}
+{% block app_tabbar %}{% endblock %}
 {% block scripts %}
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin="" defer></script>
-  <script src="{% static 'tracking/map.js' %}?v=20261022h" defer></script>
+  <script src="{% static 'tracking/map.js' %}?v=20261023b" defer></script>
 {% endblock %}

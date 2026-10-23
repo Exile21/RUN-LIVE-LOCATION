@@ -4,8 +4,8 @@
 <section class="page page--narrow">
   <div class="page-heading">
     <div>
-      <p class="eyebrow">{% if event %}Event settings{% else %}New event{% endif %}</p>
       <h1>{% if event %}Edit event{% else %}Set up an event{% endif %}</h1>
+      <p class="lede">{% if event %}Change the name, schedule, or route for {{ event.name }}.{% else %}Set the name, schedule, and GPX route for a new event.{% endif %}</p>
     </div>
   </div>
 
@@ -20,28 +20,28 @@
     <div class="field">
       <label for="{{ form.name.id_for_label }}">Event name</label>
       {{ form.name }}
-      {% if form.name.help_text %}<p class="help">{{ form.name.help_text }}</p>{% endif %}
-      {% for error in form.name.errors %}<p class="field-error">{{ error }}</p>{% endfor %}
+      {% if form.name.help_text %}<p class="help" id="{{ form.name.id_for_label }}_helptext">{{ form.name.help_text }}</p>{% endif %}
+      {% if form.name.errors %}<div id="{{ form.name.id_for_label }}_error">{% for error in form.name.errors %}<p class="field-error">{{ error }}</p>{% endfor %}</div>{% endif %}
     </div>
 
     <div class="schedule-grid">
       <div class="field">
         <label for="{{ form.schedule_starts_at.id_for_label }}">Starts</label>
         {{ form.schedule_starts_at }}
-        <p class="help">{{ form.schedule_starts_at.help_text }}</p>
-        {% for error in form.schedule_starts_at.errors %}<p class="field-error">{{ error }}</p>{% endfor %}
+        <p class="help" id="{{ form.schedule_starts_at.id_for_label }}_helptext">{{ form.schedule_starts_at.help_text }}</p>
+        {% if form.schedule_starts_at.errors %}<div id="{{ form.schedule_starts_at.id_for_label }}_error">{% for error in form.schedule_starts_at.errors %}<p class="field-error">{{ error }}</p>{% endfor %}</div>{% endif %}
       </div>
       <div class="field">
         <label for="{{ form.schedule_ends_at.id_for_label }}">Ends</label>
         {{ form.schedule_ends_at }}
-        <p class="help">{{ form.schedule_ends_at.help_text }}</p>
-        {% for error in form.schedule_ends_at.errors %}<p class="field-error">{{ error }}</p>{% endfor %}
+        <p class="help" id="{{ form.schedule_ends_at.id_for_label }}_helptext">{{ form.schedule_ends_at.help_text }}</p>
+        {% if form.schedule_ends_at.errors %}<div id="{{ form.schedule_ends_at.id_for_label }}_error">{% for error in form.schedule_ends_at.errors %}<p class="field-error">{{ error }}</p>{% endfor %}</div>{% endif %}
       </div>
     </div>
 
     <div class="config-note">
       <div>
-        <p class="eyebrow">Telegram group</p>
+        <h2>Telegram group</h2>
         {% if telegram_config %}
           <p class="mono">{{ telegram_config.group_id }}</p>
           <p class="help">Shared by new events. The bot token and username stay in <code>.env</code>.</p>
@@ -55,11 +55,11 @@
     <div class="field">
       <label for="{{ form.route_file.id_for_label }}">GPX route</label>
       {{ form.route_file }}
-      <p class="help">
+      <p class="help" id="{{ form.route_file.id_for_label }}_helptext">
         Up to 2 MiB and 20,000 points. {% if event %}Leave empty to keep the current route.{% else %}Required.{% endif %}
         Invalid files never replace an existing route.
       </p>
-      {% for error in form.route_file.errors %}<p class="field-error">{{ error }}</p>{% endfor %}
+      {% if form.route_file.errors %}<div id="{{ form.route_file.id_for_label }}_error">{% for error in form.route_file.errors %}<p class="field-error">{{ error }}</p>{% endfor %}</div>{% endif %}
     </div>
 
     <div class="form-actions">

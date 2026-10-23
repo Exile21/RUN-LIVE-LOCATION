@@ -1,0 +1,47 @@
+{% extends "tracking/base.html" %}
+{% block title %}Create account · Runline{% endblock %}
+{% block app_context %}Runner account{% endblock %}
+{% block body_class %}auth-page{% endblock %}
+{% block content %}
+<section class="page page--narrow auth">
+  <div>
+    <h1>Create a runner account</h1>
+    <p class="lede">Join events, see elapsed time, and keep your lap count.</p>
+  </div>
+  <form method="post" class="form-card">
+    {% csrf_token %}
+    <input type="hidden" name="next" value="{{ next }}">
+    {% if form.non_field_errors %}
+      <div class="form-errors" role="alert">
+        {% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}
+      </div>
+    {% endif %}
+
+    <div class="field">
+      <label for="{{ form.username.id_for_label }}">Username</label>
+      {{ form.username }}
+      {% if form.username.help_text %}<div class="help">{{ form.username.help_text|safe }}</div>{% endif %}
+      {% if form.username.errors %}<div>{% for error in form.username.errors %}<p class="field-error">{{ error }}</p>{% endfor %}</div>{% endif %}
+    </div>
+
+    <div class="field">
+      <label for="{{ form.password1.id_for_label }}">Password</label>
+      {{ form.password1 }}
+      {% if form.password1.help_text %}<div class="help">{{ form.password1.help_text|safe }}</div>{% endif %}
+      {% if form.password1.errors %}<div>{% for error in form.password1.errors %}<p class="field-error">{{ error }}</p>{% endfor %}</div>{% endif %}
+    </div>
+
+    <div class="field">
+      <label for="{{ form.password2.id_for_label }}">Confirm password</label>
+      {{ form.password2 }}
+      {% if form.password2.errors %}<div>{% for error in form.password2.errors %}<p class="field-error">{{ error }}</p>{% endfor %}</div>{% endif %}
+    </div>
+
+    <div class="form-actions">
+      <button class="button button--primary" type="submit">Create account</button>
+    </div>
+  </form>
+  <p class="auth-switch">Already have an account? <a href="{% url 'login' %}{% if next %}?next={{ next|urlencode }}{% endif %}">Sign in</a>.</p>
+</section>
+{% endblock %}
+{% block app_tabbar %}{% endblock %}

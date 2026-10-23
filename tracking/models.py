@@ -1,6 +1,7 @@
 import secrets
 import uuid
 
+from django.conf import settings
 from django.db import models
 
 
@@ -63,10 +64,18 @@ class TelegramConfig(models.Model):
 
 class Participant(models.Model):
     event = models.ForeignKey(Event, on_delete=models.CASCADE, related_name="participants")
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="event_participations",
+    )
     public_id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
-    telegram_user_id = models.BigIntegerField()
-    private_chat_id = models.BigIntegerField()
+    telegram_user_id = models.BigIntegerField(null=True, blank=True)
+    private_chat_id = models.BigIntegerField(null=True, blank=True)
     display_name = models.CharField(max_length=160)
+    laps = models.PositiveIntegerField(default=0)
     pending_nonce = models.CharField(max_length=64, blank=True, default="")
     pending_at = models.DateTimeField(null=True, blank=True)
     consented_at = models.DateTimeField(null=True, blank=True)
@@ -92,6 +101,11 @@ class Participant(models.Model):
             models.UniqueConstraint(
                 fields=["event", "telegram_user_id"],
                 name="one_participation_per_event_user",
+            ),
+            models.UniqueConstraint(
+                fields=["event", "user"],
+                condition=models.Q(user__isnull=False),
+                name="one_registration_per_event_user",
             ),
             models.UniqueConstraint(
                 fields=["telegram_user_id"],

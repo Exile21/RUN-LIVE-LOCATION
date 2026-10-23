@@ -25,6 +25,13 @@ def enrollment_link(event: Event) -> str:
     return f"https://t.me/{username}?start=e_{event.enrollment_token}"
 
 
+def claim_link(participant: Participant) -> str:
+    username = settings.TELEGRAM_BOT_USERNAME
+    if not username:
+        raise telegram.TelegramConfigError("TELEGRAM_BOT_USERNAME is not configured.")
+    return f"https://t.me/{username}?start=p_{participant.public_id.hex}"
+
+
 def _timestamp(value, *, now: datetime) -> datetime:
     if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
         return now
@@ -97,16 +104,41 @@ def _handle_start(update_id: int, message: dict, user: dict, chat: dict, text: s
     chat_id = chat.get("id")
     if not isinstance(user_id, int) or chat_id != user_id:
         return
-    if not payload.startswith("e_"):
+    event = None
+    participant = None
+    if payload.startswith("p_"):
+        try:
+            public_id = uuid.UUID(hex=payload[2:])
+        except (ValueError, TypeError):
+            _send(chat_id, "This runner link is no longer active.")
+            return
+        participant = (
+            Participant.objects.select_related("event")
+            .filter(public_id=public_id, user__isnull=False)
+            .first()
+        )
+        if participant is None or participant.event.status != Event.Status.OPEN:
+            _send(chat_id, "This runner link is no longer active.")
+            return
+        event = participant.event
+    elif payload.startswith("e_"):
+        event = Event.objects.filter(
+            status=Event.Status.OPEN, enrollment_token=payload[2:]
+        ).first()
+    else:
         _send(chat_id, PRIVATE_HELP)
         return
-    event = Event.objects.filter(status=Event.Status.OPEN, enrollment_token=payload[2:]).first()
     if event is None or event.group_id is None:
         _send(chat_id, "This event link is not active.")
         return
     if not telegram.verify_member(event.group_id, user_id):
         _send(chat_id, "Join the event's Telegram group first, then open this link again.")
         return
+    if participant is not None:
+        participant = state.claim_registration(participant.public_id, user_id, chat_id)
+        if participant is None:
+            _send(chat_id, "This runner link is no longer active.")
+            return
     try:
         participant = state.begin_onboarding(
             event.id,

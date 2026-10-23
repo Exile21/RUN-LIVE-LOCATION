@@ -1,11 +1,12 @@
+import re
 from pathlib import Path
 
 from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.test import TestCase
+from django.test import SimpleTestCase, TestCase
 
 from tracking.forms import EventForm
-from tracking.gpx import MAX_POINTS, parse_gpx
+from tracking.gpx import MAX_POINTS, parse_gpx, route_preview_path
 from tracking.models import Event, TelegramConfig
 from tracking.tests.helpers import make_event, make_telegram_config
 
@@ -79,6 +80,31 @@ class GpxTests(TestCase):
             parse_gpx(b"x" * (2 * 1024 * 1024 + 1))
         with self.assertRaises(ValidationError):
             parse_gpx(gpx_with_points(MAX_POINTS + 1))
+
+
+class RoutePreviewTests(SimpleTestCase):
+    def test_preview_is_centered_and_keeps_segments_separate(self):
+        path = route_preview_path([[[0, 0], [0, 2]], [[1, 0], [1, 2]]])
+        self.assertEqual(path.count("M"), 2)
+        self.assertEqual(path.count("L"), 2)
+        points = [(float(x), float(y)) for x, y in re.findall(r"[ML]([\d.]+),([\d.]+)", path)]
+        xs, ys = zip(*points)
+        self.assertAlmostEqual((min(xs) + max(xs)) / 2, 160)
+        self.assertAlmostEqual((min(ys) + max(ys)) / 2, 100)
+        self.assertTrue(all(16 <= x <= 304 and 16 <= y <= 184 for x, y in points))
+
+    def test_empty_repeated_and_straight_routes(self):
+        self.assertEqual(route_preview_path([]), "")
+        self.assertEqual(route_preview_path([[[1, 2], [1, 2]]]), "")
+        self.assertEqual(route_preview_path([[[0, 0], [0, 2]]]), "M16.00,100.00 L304.00,100.00")
+        self.assertEqual(route_preview_path([[[0, 1], [2, 1]]]), "M160.00,184.00 L160.00,16.00")
+
+    def test_dateline_crossing_uses_the_short_longitude_span(self):
+        path = route_preview_path([[[0, 179.9], [1, -179.9]]])
+        points = [(float(x), float(y)) for x, y in re.findall(r"[ML]([\d.]+),([\d.]+)", path)]
+        self.assertEqual(len(points), 2)
+        self.assertLess(points[0][0], points[1][0])
+        self.assertLess(points[1][0] - points[0][0], 40)
 
 
 class EventFormTests(TestCase):

@@ -40,7 +40,7 @@ class EventAdmin(admin.ModelAdmin):
 
 @admin.register(Participant)
 class ParticipantAdmin(admin.ModelAdmin):
-    list_display = ("display_name", "event", "consented_at", "withdrawn", "position_at")
+    list_display = ("display_name", "event", "user", "laps", "consented_at", "withdrawn", "position_at")
     readonly_fields = [field.name for field in Participant._meta.fields]
 
     def has_add_permission(self, request):

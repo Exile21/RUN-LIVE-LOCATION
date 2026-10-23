@@ -8,6 +8,7 @@
   const mode = mapElement.dataset.mode;
   const snapshotUrl = mapElement.dataset.snapshotUrl;
   const renameTemplate = mapElement.dataset.renameTemplate || "";
+  const lapTemplate = mapElement.dataset.lapTemplate || "";
   const connection = document.getElementById("connection");
   const connectionText = document.getElementById("connection-text");
   const lastRefresh = document.getElementById("last-refresh");
@@ -17,6 +18,8 @@
   const fitButton = document.getElementById("fit-route");
   const renameForm = document.getElementById("rename-form");
   const renameInput = document.getElementById("rename-input");
+  const lapForm = document.getElementById("lap-form");
+  const lapCount = document.getElementById("lap-count");
   const summary = {
     participants: document.getElementById("summary-participants"),
     live: document.getElementById("summary-live"),
@@ -26,6 +29,7 @@
   };
   const liveChip = document.getElementById("map-live-chip");
   const liveChipCount = document.getElementById("map-live-count");
+  const liveChipLabel = document.getElementById("map-live-label");
   const runnerBadge = document.getElementById("runner-badge");
   const mapWarning = document.getElementById("map-warning");
 
@@ -101,14 +105,19 @@
     const name = document.createElement("strong");
     name.textContent = runner.name;
     wrapper.appendChild(name);
-    const meta = document.createElement("span");
     const parts = [STATUS_LABELS[status] || status];
+    if (typeof runner.laps === "number") {
+      parts.push(runner.laps + (runner.laps === 1 ? " lap" : " laps"));
+    }
     if (runner.position_at) parts.push("last fix " + clock(runner.position_at));
     if (runner.accuracy !== null && runner.accuracy !== undefined) {
       parts.push("±" + Math.round(runner.accuracy) + " m");
     }
-    meta.textContent = parts.join(" · ");
-    wrapper.appendChild(meta);
+    parts.forEach(function (part) {
+      const meta = document.createElement("span");
+      meta.textContent = part;
+      wrapper.appendChild(meta);
+    });
     return wrapper;
   }
 
@@ -116,8 +125,8 @@
     return L.divIcon({
       className: "runner-marker runner-marker--" + status,
       html: "<span>" + runner.number + "</span>",
-      iconSize: [32, 32],
-      iconAnchor: [16, 16],
+      iconSize: [44, 44],
+      iconAnchor: [22, 22],
       popupAnchor: [0, -16],
     });
   }
@@ -128,6 +137,16 @@
 
   function isNarrow() {
     return window.matchMedia("(max-width: 899px)").matches;
+  }
+
+  function addLap(runner) {
+    if (!lapForm || !lapTemplate) return;
+    lapForm.action = lapTemplate.replace(
+      "00000000-0000-0000-0000-000000000000",
+      encodeURIComponent(runner.id)
+    );
+    if (lapForm.requestSubmit) lapForm.requestSubmit();
+    else lapForm.submit();
   }
 
   function selectRunner(id, focusList) {
@@ -153,6 +172,20 @@
     } else if (renameForm) {
       renameForm.hidden = true;
     }
+    if (lapForm && id) {
+      const runner = (snapshot.runners || []).find(function (item) { return item.id === id; });
+      if (runner && lapTemplate) {
+        lapForm.action = lapTemplate.replace(
+          "00000000-0000-0000-0000-000000000000",
+          encodeURIComponent(id)
+        );
+        if (lapCount) lapCount.textContent = String(runner.laps || 0);
+        lapForm.hidden = false;
+      }
+    } else if (lapForm) {
+      lapForm.hidden = true;
+    }
+    if (rows.has(id) && ui().flash) ui().flash(rows.get(id).button);
     if (focusList && rows.has(id)) rows.get(id).button.focus();
 
     function openPopup() {
@@ -193,6 +226,18 @@
     button.appendChild(status);
     element.appendChild(button);
     button.addEventListener("click", function () { selectRunner(runner.id, false); });
+    if (lapTemplate) {
+      const lapButton = document.createElement("button");
+      lapButton.type = "button";
+      lapButton.className = "runner-row__lap";
+      lapButton.textContent = "+1";
+      lapButton.setAttribute("aria-label", "Add a lap for " + runner.name);
+      lapButton.addEventListener("click", function (event) {
+        event.stopPropagation();
+        addLap(runner);
+      });
+      element.appendChild(lapButton);
+    }
     listElement.appendChild(element);
     return { element: element, button: button, name: name, meta: meta, status: status, runner: runner };
   }
@@ -200,7 +245,14 @@
   function updateRow(row, runner, status) {
     row.runner = runner;
     row.name.textContent = runner.name;
-    row.meta.textContent = runner.position_at ? "Last fix " + clock(runner.position_at) : "No position yet";
+    const lapText = typeof runner.laps === "number"
+      ? runner.laps + (runner.laps === 1 ? " lap" : " laps")
+      : "";
+    const fixText = runner.position_at ? "Last fix " + clock(runner.position_at) : "No position yet";
+    row.meta.textContent = lapText ? lapText + " · " + fixText : fixText;
+    if (selectedId === runner.id && lapCount && typeof runner.laps === "number") {
+      lapCount.textContent = String(runner.laps);
+    }
     const nextStatus = statusElement(runner, status);
     row.status.replaceWith(nextStatus);
     row.status = nextStatus;
@@ -240,7 +292,7 @@
       if (points.length < 2) return;
       all.push.apply(all, points);
       routeLayers.push(L.polyline(points, {
-        color: "#111111",
+        color: getComputedStyle(mapElement).getPropertyValue("--color-route").trim(),
         weight: 4,
         opacity: 0.72,
         lineJoin: "round",
@@ -320,7 +372,6 @@
   function renderList(now) {
     const runners = snapshot.runners || [];
     const activeIds = new Set();
-    const fresh = [];
     runners.forEach(function (runner) {
       activeIds.add(runner.id);
       const status = effectiveStatus(runner, now);
@@ -328,7 +379,6 @@
       if (!row) {
         row = createRow(runner);
         rows.set(runner.id, row);
-        fresh.push(row.element);
       }
       updateRow(row, runner, status);
       listElement.appendChild(row.element);
@@ -344,7 +394,6 @@
       if (renameForm) renameForm.hidden = true;
     }
     applyFilter();
-    if (fresh.length && ui().reveal) ui().reveal(fresh);
   }
 
   function renderSummary(now) {
@@ -361,7 +410,9 @@
     summary.stale.textContent = String(stale);
     if (summary.liveTile) summary.liveTile.dataset.tone = live ? "live" : "";
     if (summary.staleTile) summary.staleTile.dataset.tone = stale ? "stale" : "";
-    if (liveChipCount) liveChipCount.textContent = String(live);
+    const offline = connectionState === "offline";
+    if (liveChipCount) liveChipCount.textContent = offline ? "" : String(live);
+    if (liveChipLabel) liveChipLabel.textContent = offline ? "Offline" : "live";
     if (liveChip) {
       const closed = Boolean(snapshot.event && snapshot.event.status === "closed");
       liveChip.hidden = runners.length === 0 || closed;
@@ -377,7 +428,6 @@
       runnerBadge.textContent = String(runners.length);
       runnerBadge.hidden = runners.length === 0;
     }
-    if (live > 0 && ui().flash) ui().flash(summary.live);
   }
 
   function render() {
@@ -404,6 +454,7 @@
     rows = new Map();
     selectedId = null;
     if (renameForm) renameForm.hidden = true;
+    if (lapForm) lapForm.hidden = true;
     summary.participants.textContent = "0";
     summary.live.textContent = "0";
     summary.stale.textContent = "0";
@@ -478,7 +529,7 @@
       render();
       return;
     }
-    map = L.map(mapElement, { zoomControl: true, attributionControl: true }).setView([20, 0], 2);
+    map = L.map(mapElement, { zoomControl: true, attributionControl: true, fadeAnimation: false }).setView([20, 0], 2);
     tileLayer = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
       maxZoom: 19,
       attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',

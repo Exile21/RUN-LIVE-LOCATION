@@ -1,0 +1,46 @@
+<article class="event-participation{% if item.is_past %} is-past{% endif %}">
+  <header class="event-participation__head">
+    <div>
+      <span class="status status--{{ item.event_status }}">{{ item.status_label }}</span>
+      <h3>{{ item.event_name }}</h3>
+      <p class="muted">{{ item.schedule_label }}</p>
+    </div>
+    <a class="text-link" href="{{ item.map_url }}">Open map</a>
+  </header>
+
+  <div class="event-participation__stats">
+    <div>
+      <span class="stat-value">
+        {% if item.live_start %}
+          <time datetime="{{ item.live_start }}" data-elapsed="{{ item.live_start }}">{{ item.time_value }}</time>
+        {% else %}
+          {{ item.time_value }}
+        {% endif %}
+      </span>
+      <span class="stat-label">{{ item.time_label }}</span>
+    </div>
+    <div>
+      <span class="stat-value">{{ item.laps }}</span>
+      <span class="stat-label">Laps</span>
+    </div>
+  </div>
+
+  <footer class="event-participation__actions">
+    {% if not item.is_past %}
+      {% if item.claim_url %}
+        <a class="button button--small button--ghost" href="{{ item.claim_url }}">{{ item.telegram_label }}</a>
+      {% else %}
+        <span class="help">{{ item.telegram_label }}{% if item.telegram_note %} {{ item.telegram_note }}{% endif %}</span>
+      {% endif %}
+    {% endif %}
+
+    {% if item.can_leave %}
+      <form method="post" action="{% url 'runner_leave' public_id=item.participant.public_id %}" onsubmit="return confirm('Leave {{ item.event_name|escapejs }}? This removes the event from your history.');">
+        {% csrf_token %}
+        <button type="submit" class="link-button">Leave event</button>
+      </form>
+    {% elif not item.is_past %}
+      <span class="help">Stop sharing in Telegram to leave.</span>
+    {% endif %}
+  </footer>
+</article>

@@ -1,0 +1,35 @@
+{% extends "tracking/base.html" %}
+{% block title %}Join {{ event.name }} · Runline{% endblock %}
+{% block app_context %}Runner account{% endblock %}
+{% block content %}
+<section class="page page--narrow">
+  <div class="page-heading">
+    <div>
+      <p class="eyebrow">Runner sign-up</p>
+      <h1>{{ event.name }}</h1>
+      <p class="lede">
+        {% if event.schedule_starts_at %}{{ event.schedule_starts_at|date:"j M Y, H:i T" }}{% else %}Schedule not set{% endif %}
+      </p>
+    </div>
+  </div>
+
+  {% if route_preview_path %}
+    <svg class="join-route route-preview" viewBox="0 0 320 200" role="img" aria-label="GPX route outline for {{ event.name }}">
+      <path d="{{ route_preview_path }}"></path>
+    </svg>
+  {% endif %}
+
+  <div class="join-note">
+    <p>Join this event to see elapsed time and your lap count. To appear on the live map, connect Telegram and share Live Location after joining.</p>
+    <p class="help">Your latest location is visible to anyone with the event link. Use /stop in the private bot chat to leave.</p>
+  </div>
+
+  <form method="post" class="form-card">
+    {% csrf_token %}
+    <div class="form-actions">
+      <button class="button button--primary" type="submit">Join event</button>
+      <a class="button button--ghost" href="{% url 'runner_dashboard' %}">Cancel</a>
+    </div>
+  </form>
+</section>
+{% endblock %}

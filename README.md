@@ -67,6 +67,9 @@ scripts/       Local dev server wrapper
 - Event schedule with local start and end times, shown on the organizer list and public map.
 - One Telegram group configured in Django Admin and reused by new events.
 - Runner onboarding through a private Telegram chat. Joining the group never grants GPS access.
+- Runner web accounts can join an event from a shared sign-up page, keep past events, and see elapsed time and their own lap count.
+- Organizers can post the event sign-up link to the Telegram group from the event Info panel.
+- Organizer lap counter for each tracked runner.
 - Explicit consent covering the public, link-only map.
 - Private live-location messages update one current position per runner.
 - Organizer map with route, search, runner selection, status, and last fix time.
@@ -118,9 +121,10 @@ python -c "import secrets; print(secrets.token_urlsafe(48))"
 3. In the group, send `/groupid`. Copy the negative ID into **Admin → Telegram settings**. New events reuse this group; the event form no longer asks for it.
 4. Create an event with start and end times and upload a GPX file.
 5. Open the event. The app verifies that the chat is a group and that the bot is an administrator before changing the event to open.
-6. Post the runner onboarding link in the group, or let the bot welcome new members with it.
-7. A runner opens the link, presses Start, reads the consent notice, and taps **Agree and share**. The runner then opens Telegram's attachment menu → Location → **Share Live Location**. A one-time pin is not tracked.
-8. Share the separate spectator link with viewers. It is a bearer capability: anyone with it can view and copy visible positions. Rotate it if it leaks.
+6. Open the event Info panel and press **Send to Telegram**. The bot posts the runner sign-up page to the group. Existing group members can still use the Telegram onboarding link instead.
+7. A new runner opens the sign-up page, creates a username and password, and confirms the event. Back on **My events**, they press **Connect Telegram**, press Start, read the consent notice, and tap **Agree and share**. The runner then opens Telegram's attachment menu → Location → **Share Live Location**. A one-time pin is not tracked.
+8. Organizers select a runner in the Runners panel and press **Add lap** to record a completed lap. Laps survive event closure; closing still clears saved positions.
+9. Share the separate spectator link with viewers. It is a bearer capability: anyone with it can view and copy visible positions. Rotate it if it leaks.
 
 The bot cannot start a private conversation with a runner. The runner must press Start from the onboarding link. Joining a group cannot automatically enable GPS sharing.
 
@@ -158,7 +162,7 @@ gunicorn runlive.wsgi:application \
   --timeout 60
 ```
 
-The `deploy/Caddyfile` is a starting point. Replace the hostname and paths. It serves collected static files and disables URL access logging so capability-token paths do not end up in logs. If you enable logging, redact `/e/<token>/` paths before storing them.
+The `deploy/Caddyfile` is a starting point. It takes the public origin from `PUBLIC_BASE_URL` and the app upstream from `APP_UPSTREAM` (default `127.0.0.1:8001`). It serves collected static files and disables URL access logging so capability-token paths do not end up in logs. If you enable logging, redact `/e/<token>/` paths before storing them.
 
 Required production environment:
 
@@ -175,6 +179,81 @@ The webhook secret may use only `A-Z`, `a-z`, `0-9`, `_`, and `-`. Use HTTPS, se
 
 SQLite has no row-level locking and limited write concurrency. Keep one worker, use the configured 20-second timeout and immediate transactions, and keep writes short. Move to PostgreSQL and more workers if measured contention or spectator traffic demands it. Standard OpenStreetMap tiles have no SLA and prohibit bulk/offline downloading; use another tile provider for a high-traffic public event and keep attribution visible.
 
+### Docker Compose
+
+`compose.yaml` runs one Gunicorn container and Caddy with automatic HTTPS. Caddy needs ports 80 and 443, and the `PUBLIC_BASE_URL` hostname must resolve to the server. Use the bare HTTPS origin, without a trailing slash or path. The app entrypoint applies migrations and collects static files before Gunicorn starts.
+
+Set `DJANGO_ALLOWED_HOSTS` and `DJANGO_CSRF_TRUSTED_ORIGINS` to the public hostname, then start the stack:
+
+```bash
+cp .env.example .env
+# edit .env: secret key, public origin, hosts, timezone, bot credentials
+docker compose up -d --build
+docker compose exec app python manage.py createsuperuser
+```
+
+After configuring the Telegram group in Django Admin:
+
+```bash
+docker compose exec app python manage.py check_telegram
+docker compose exec app python manage.py register_webhook
+```
+
+SQLite data is kept in the `sqlite_data` volume. The app is limited to one container because SQLite has a single writer. Stop the app before copying `/data/db.sqlite3` for a consistent backup. `docker compose down` keeps data; `docker compose down -v` deletes the database and Caddy certificates.
+
+### Public HTTPS without a domain
+
+If the server has a public IPv4 address, use a `nip.io` hostname: the name embeds the IP, so no domain purchase or DNS setup is needed. Caddy obtains a Let's Encrypt certificate over HTTP-01.
+
+For server `203.0.113.5`:
+
+```bash
+# .env
+DJANGO_DEBUG=false
+DJANGO_HTTPS=true
+DJANGO_ALLOWED_HOSTS=203.0.113.5.nip.io
+DJANGO_CSRF_TRUSTED_ORIGINS=https://203.0.113.5.nip.io
+PUBLIC_BASE_URL=https://203.0.113.5.nip.io
+```
+
+Allow inbound TCP 80 and 443, do not publish port 8000, then start and register the webhook:
+
+```bash
+docker compose up -d --build
+docker compose exec app python manage.py register_webhook
+docker compose exec app python manage.py check_telegram
+```
+
+Open `https://203.0.113.5.nip.io/` and share the spectator link shown on the event page. Caddy stores the certificate in the `caddy_data` volume; keep that volume.
+
+`nip.io` is a third-party DNS service, and the hostname changes if the public IP changes (re-register the webhook after a change). Use a domain you control for a long-lived deployment. If the server is behind NAT, use a tunnel instead.
+
+### LAN-only: access by IP over HTTP
+
+For a phone check without a domain, Caddy can serve plain HTTP on an IP. Use the exact address the phone will open as `PUBLIC_BASE_URL`:
+
+```bash
+# .env
+DJANGO_DEBUG=false
+DJANGO_HTTPS=false
+DJANGO_ALLOWED_HOSTS=192.168.1.50
+DJANGO_CSRF_TRUSTED_ORIGINS=
+PUBLIC_BASE_URL=http://192.168.1.50
+```
+
+```bash
+docker compose up -d --build
+docker compose exec app python manage.py createsuperuser
+```
+
+Then open `http://192.168.1.50/` on a phone connected to the same network. Allow port 80 through the host firewall. `PUBLIC_BASE_URL` must match the scheme, IP, and port in the phone's URL exactly, or Caddy returns 404.
+
+This disables HTTPS redirects and secure cookies, so login credentials and capability links are sent unencrypted. Use it only on a trusted network. On a public server, terminate TLS with a tunnel or reverse proxy instead. Telegram webhooks require HTTPS; without one, run long polling as a foreground process:
+
+```bash
+docker compose exec app python manage.py poll_telegram
+```
+
 ### Backups and deletion
 
 Closing an event, `/stop`, or group removal clears coordinates in the application database. It does not delete the runner's Telegram messages, copies already viewed or screenshotted by spectators, or coordinates retained in old database backups. Treat backups as sensitive location data and expire them on a stated schedule. Disclose backup retention to organizers and runners; do not promise deletion from backups unless you actually expire them.
@@ -190,6 +269,16 @@ DJANGO_TIME_ZONE=Asia/Jakarta \
 DJANGO_ALLOWED_HOSTS=testserver,localhost,127.0.0.1 \
 python manage.py test -v 2
 ```
+
+Optional UI regression checks, if Node.js is installed (not required to run the app):
+
+```bash
+node --test scripts/ui.test.cjs
+```
+
+The mobile-first slate interface uses Anime.js for short state transitions and
+native scrolling for the all-event carousel, with centered GPX route outlines. Reduced-motion preferences are respected;
+tabs and event management do not depend on the animation CDN being available.
 
 Then use two real phones for the device checklist:
 

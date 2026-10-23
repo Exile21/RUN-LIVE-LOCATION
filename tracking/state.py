@@ -189,6 +189,45 @@ def begin_onboarding(
         return participant
 
 
+def claim_registration(
+    public_id,
+    user_id: int,
+    chat_id: int,
+) -> Participant | None:
+    """Attach a Telegram account to a web registration, merging a prior tracker."""
+    with transaction.atomic():
+        participant = (
+            Participant.objects.select_for_update()
+            .select_related("event")
+            .filter(public_id=public_id, user__isnull=False)
+            .first()
+        )
+        if participant is None or participant.event.status != Event.Status.OPEN:
+            return None
+        if participant.telegram_user_id not in {None, user_id}:
+            return None
+        existing = (
+            Participant.objects.select_for_update()
+            .filter(event_id=participant.event_id, telegram_user_id=user_id)
+            .exclude(pk=participant.pk)
+            .first()
+        )
+        if existing is not None:
+            if existing.user_id not in {None, participant.user_id}:
+                return None
+            owner_id = participant.user_id
+            extra_laps = participant.laps
+            participant.delete()
+            existing.user_id = owner_id
+            existing.laps += extra_laps
+            existing.save(update_fields=["user", "laps"])
+            return existing
+        participant.telegram_user_id = user_id
+        participant.private_chat_id = chat_id
+        participant.save(update_fields=["telegram_user_id", "private_chat_id"])
+        return participant
+
+
 def grant_consent(
     public_id,
     user_id: int,

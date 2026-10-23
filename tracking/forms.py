@@ -1,9 +1,59 @@
+import re
+
 from django import forms
 from django.conf import settings
+from django.contrib.auth import get_user_model
+from django.contrib.auth.forms import UserCreationForm
 from django.core.exceptions import ValidationError
 
 from .gpx import MAX_GPX_BYTES, parse_gpx
 from .models import Event, TelegramConfig
+
+User = get_user_model()
+JOIN_TOKEN_PATTERN = re.compile(r"(?:start=e_|/join/)([A-Za-z0-9_-]{16,})")
+
+
+def join_token(value: str) -> str:
+    value = (value or "").strip()
+    match = JOIN_TOKEN_PATTERN.search(value)
+    if match:
+        return match.group(1)
+    if value and "/" not in value and "?" not in value and " " not in value:
+        return value.strip("/")
+    return ""
+
+
+class RunnerSignupForm(UserCreationForm):
+    class Meta:
+        model = User
+        fields = ("username",)
+
+
+class JoinEventForm(forms.Form):
+    code = forms.CharField(
+        label="Event link or code",
+        max_length=500,
+        widget=forms.TextInput(
+            attrs={
+                "placeholder": "Paste the event link",
+                "autocomplete": "off",
+                "autocapitalize": "none",
+                "spellcheck": "false",
+            }
+        ),
+    )
+
+    def clean_code(self):
+        token = join_token(self.cleaned_data["code"])
+        event = (
+            Event.objects.filter(status=Event.Status.OPEN, enrollment_token=token).first()
+            if token
+            else None
+        )
+        if event is None:
+            raise ValidationError("This event link is not active.")
+        self.event = event
+        return token
 
 
 class EventForm(forms.ModelForm):
